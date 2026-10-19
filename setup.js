@@ -1,0 +1,1 @@
+﻿const fs=require('fs');const b='app/';function w(f,c){fs.writeFileSync(b+f,c,'utf8');console.log('OK: '+f);}

@@ -1,0 +1,65 @@
+{
+  "currentUser": {
+    "id": "EMP-0001",
+    "name": "Sarah Jenkins",
+    "role": "Super Admin / HR Director",
+    "email": "s.jenkins@vanguardops.com",
+    "department": "Executive Operations",
+    "avatar": "https://lh3.googleusercontent.com/aida-public/AB6AXuAz_1IElxGVAr-brgy0EQUmBVyqhHTB0sZ7PKLe_AS0eVgbljLVFKAU80T7xdImGy0yi0R2OQKXSMfu-m8_aUgCi4Zn1VYbhpxYgaNGwyVa1v-JVdYJFWOg4MzTmvPeuOOBXhEzZV0iq3Yam8WPew3edwP2xojx7WSF1Cn4Ob9voIcPhjM2FIM6dHNNrjvYgX_c6MwKo-zgjznxWlDa4cDZEgtlcVhK5BhTZ8Y32vc",
+    "permissions": ["roster.read", "roster.write", "attendance.audit", "fleet.dispatch", "alert.broadcast"],
+    "sessionStartedAt": "2024-10-24T07:58:00+07:00"
+  },
+  "notifications": [
+    {
+      "id": "NTF-1041",
+      "severity": "high",
+      "category": "geofence",
+      "title": "Geofence breach detected",
+      "body": "Dimas Pratama (EMP-7742) left the HQ perimeter by 420m.",
+      "timestamp": "2024-10-24T10:41:12+07:00",
+      "read": false
+    },
+    {
+      "id": "NTF-1040",
+      "severity": "medium",
+      "category": "fleet",
+      "title": "Low fuel threshold reached",
+      "body": "Unit B 9781 KJA dropped to 18% fuel while en route to the client complex.",
+      "timestamp": "2024-10-24T10:38:04+07:00",
+      "read": false
+    },
+    {
+      "id": "NTF-1039",
+      "severity": "low",
+      "category": "attendance",
+      "title": "Attendance sync completed",
+      "body": "128 punch records reconciled against the audit server.",
+      "timestamp": "2024-10-24T10:30:00+07:00",
+      "read": true
+    },
+    {
+      "id": "NTF-1038",
+      "severity": "low",
+      "category": "system",
+      "title": "Device fleet health nominal",
+      "body": "126 of 128 devices reporting normally.",
+      "timestamp": "2024-10-24T09:55:24+07:00",
+      "read": true
+    }
+  ],
+  "broadcastTemplates": [
+    { "id": "tpl-rollcall", "label": "Emergency muster roll", "severity": "critical", "message": "Initiate zone roll call and report to your muster point immediately." },
+    { "id": "tpl-evac", "label": "Evacuation order", "severity": "critical", "message": "Evacuate the building via the nearest stairwell and proceed to the assembly area." },
+    { "id": "tpl-weather", "label": "Weather advisory", "severity": "warning", "message": "Severe weather expected. Suspend all field deployments until further notice." },
+    { "id": "tpl-system", "label": "System maintenance", "severity": "info", "message": "Scheduled maintenance window tonight from 22:00 to 23:30 WIB." }
+  ],
+  "departments": [
+    "IT Engineering",
+    "Design & Product",
+    "Growth Marketing",
+    "Finance & Control",
+    "HR & People Ops",
+    "Client Ops / Field",
+    "Supply Chain"
+  ]
+}
