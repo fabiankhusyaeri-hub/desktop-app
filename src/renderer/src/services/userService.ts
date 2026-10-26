@@ -6,7 +6,8 @@
  * revocation belongs to the auth module, which is wired in a later stage.
  */
 
-import workspace from './mock/workspace.mock.json'
+// Workspace data now comes from Supabase; keep an empty default for offline use.
+const workspace = { currentUser: null }
 
 export interface CurrentUser {
   id: string
@@ -19,7 +20,7 @@ export interface CurrentUser {
   sessionStartedAt: string
 }
 
-let currentUser: CurrentUser | null = workspace.currentUser as CurrentUser
+let currentUser: CurrentUser | null = workspace.currentUser as unknown as CurrentUser
 const listeners = new Set<() => void>()
 const emit = (): void => listeners.forEach((listener) => listener())
 
@@ -39,7 +40,7 @@ export const signOut = (): boolean => {
 }
 
 export const signInAsSuperAdmin = (): void => {
-  currentUser = workspace.currentUser as CurrentUser
+  currentUser = workspace.currentUser as unknown as CurrentUser
   emit()
 }
 

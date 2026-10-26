@@ -5,7 +5,7 @@
  * recorded coordinates. The frame geometry never changes — only the numbers.
  */
 
-import directory from './mock/employees.mock.json'
+import { isSupabaseConfigured, supabaseService } from './supabaseService'
 import { evaluateGeofence } from '../utils/geo'
 import type { MapFrameConfig } from '../utils/geo'
 import type { EmployeeEntry, LocationState } from '../types/employee'
@@ -127,7 +127,7 @@ const buildPersonnel = (employee: EmployeeEntry): MapPersonnel | null => {
   }
 }
 
-const RAW = (directory.employees as unknown[]).map((raw) => raw as EmployeeEntry)
+// Mock data removed; personnel now come from Supabase at runtime.
 
 /**
  * Presentation order of the tracker list (matches the published mockup order).
@@ -145,13 +145,37 @@ const DISPLAY_ORDER = [
 
 /** All personnel that can be projected on the tactical map. */
 export const fetchMapPersonnel = async (): Promise<MapPersonnel[]> => {
+  if (!isSupabaseConfigured()) return []
+  const rows = await supabaseService.getEmployees()
+  if (!rows || rows.length === 0) return []
+  const RAW = rows.map((raw: any) => ({
+    id: raw.id,
+    empId: raw.emp_id ?? raw.id,
+    name: raw.name,
+    email: raw.email ?? '',
+    rfidToken: raw.rfid_token ?? `RFID-${raw.id}`,
+    department: raw.department ?? 'IT Engineering',
+    role: raw.role ?? 'Field Operator',
+    geofence: raw.geofence ?? 'HQ Central Hub',
+    attendanceStatus: raw.attendance_status ?? 'present',
+    attendanceTime: raw.attendance_time ?? 'Registered Today',
+    locationState: raw.location_state ?? 'online',
+    locationDetail: raw.location_detail ?? 'Online',
+    lastPing: raw.last_ping ?? 'Just now',
+    avatar: raw.avatar ?? '',
+    gps: raw.gps_lat != null && raw.gps_lng != null
+      ? { lat: raw.gps_lat, lng: raw.gps_lng, accuracy: raw.gps_accuracy ?? 5 }
+      : null,
+    distanceMeters: raw.distance_meters ?? null,
+    updatedAt: raw.updated_at ?? new Date().toISOString()
+  })) as EmployeeEntry[]
   const projected = RAW.map(buildPersonnel).filter((entry): entry is MapPersonnel => entry !== null)
   projected.sort((a, b) => {
     const ai = DISPLAY_ORDER.indexOf(a.id)
     const bi = DISPLAY_ORDER.indexOf(b.id)
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
   })
-  return new Promise((resolve) => setTimeout(() => resolve(projected), 80))
+  return projected
 }
 
 export const matchesScope = (person: MapPersonnel, scope: MapScope): boolean => {

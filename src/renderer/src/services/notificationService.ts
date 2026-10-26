@@ -8,7 +8,8 @@
 
 import { apiGet, isApiConfigured } from './apiClient'
 import { formatTimestamp } from '../utils/datetime'
-import workspace from './mock/workspace.mock.json'
+// Workspace data now comes from Supabase; keep an empty default for offline use.
+const workspace = { notifications: [], broadcastTemplates: [], departments: [], currentUser: null }
 
 export type NotificationSeverity = 'critical' | 'high' | 'warning' | 'medium' | 'low' | 'info'
 

@@ -10,60 +10,21 @@
  * accepts a punch (AGENTS.md, rules 1, 3, 4, 5).
  */
 
-import mockSnapshot from './mock/attendance.mock.json'
 import { apiGet, apiPost, isApiConfigured } from './apiClient'
+import { isSupabaseConfigured, supabaseService } from './supabaseService'
 import { capturePosition, getDeviceId, verifyAgainstGeofence } from './locationService'
-import { formatDuration } from '../utils/datetime'
+// (unused imports removed)
 import type {
-  AttendanceEntry,
   AttendancePunchPayload,
-  AttendanceRecord,
   AttendanceSite,
   AttendanceSnapshot,
-  AttendanceStatusType,
-  GeoPoint,
-  PunchType,
-  VerificationType
+  PunchType
 } from '../types/attendance'
 
 export const ATTENDANCE_ENDPOINT = '/attendance/records'
 export const PUNCH_ENDPOINT = '/attendance/punch'
 export const ATTENDANCE_POLL_MS = 15_000
 
-interface RawRecord {
-  dayOffset: number
-  empId: string
-  name: string
-  avatar: string
-  department: string
-  shiftName: string
-  shiftSchedule: string
-  clockIn: string | null
-  clockOut: string | null
-  durationMinutes: number
-  checkinDisplay?: string
-  checkoutDisplay?: string
-  checkinMethod: string
-  checkinMethodIcon: string
-  statusType: AttendanceStatusType
-  statusLabel: string
-  siteId: string | null
-  locationName?: string
-  locationDistance: string
-  verifType: VerificationType
-  verifLabel: string
-  verifIcon: string
-  coords: (GeoPoint & { accuracy: number }) | null
-  distanceMeters: number | null
-  insideFence: boolean | null
-  toleranceRadius: string
-  varianceDetail: string
-  terminalNode: string
-  deviceBatterySignal: string
-  livenessPassed: boolean
-  shaProof: string
-  notes: string
-}
 
 /**
  * Build an absolute timestamp from a day offset and an `HH:mm:ss` clock string.
@@ -72,117 +33,77 @@ interface RawRecord {
  * the ISO string is UTC, so an early-morning punch (00:00-07:00 in GMT+7) would
  * otherwise be filed under the previous day.
  */
-const composeTimestamp = (
-  serverNow: Date,
-  dayOffset: number,
-  clock: string | null
-): { iso: string; dateKey: string } | null => {
-  if (!clock) return null
-  const date = new Date(serverNow.getTime())
-  date.setDate(date.getDate() + dayOffset)
-  const [h = '0', m = '0', s = '0'] = clock.split(':')
-  date.setHours(Number(h), Number(m), Number(s), 0)
-
-  const pad = (value: number): string => String(value).padStart(2, '0')
-  const dateKey = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-  return { iso: date.toISOString(), dateKey }
-}
-
-const formatClock = (iso: string | null): string => {
-  if (!iso) return '—'
-  const date = new Date(iso)
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true
-  })
-}
 
 /**
  * Mock rows are stored as a day offset relative to the server "today" so the
  * date scope filter (Today / Yesterday / This Week / This Month) stays useful
  * without the dataset going stale.
  */
-const hydrateMock = (): AttendanceSnapshot => {
-  const raw = mockSnapshot as unknown as {
-    meta: AttendanceSnapshot['meta']
-    sites: AttendanceSite[]
-    records: RawRecord[]
-  }
-  const serverNow = new Date()
-
-  const records: AttendanceEntry[] = raw.records.map((row) => {
-    const checkInStamp = composeTimestamp(serverNow, row.dayOffset, row.clockIn)
-    const checkOutStamp = composeTimestamp(serverNow, row.dayOffset, row.clockOut)
-    const checkInAt = checkInStamp?.iso ?? null
-    const checkOutAt = checkOutStamp?.iso ?? null
-    // A shift without a punch is filed on the shift day, not on "no date".
-    const fallbackKey = (() => {
-      const date = new Date(serverNow.getTime())
-      date.setDate(date.getDate() + row.dayOffset)
-      const pad = (value: number): string => String(value).padStart(2, '0')
-      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-    })()
-    const punchDate = checkInStamp?.dateKey ?? checkOutStamp?.dateKey ?? fallbackKey
-
-    const record: AttendanceRecord = {
-      id: row.empId,
-      name: row.name,
-      empId: row.empId,
-      avatar: row.avatar,
-      department: row.department,
-      shiftName: row.shiftName,
-      shiftSchedule: row.shiftSchedule,
-      checkinTime: row.checkinDisplay ?? formatClock(checkInAt),
-      checkinMethod: row.checkinMethod,
-      checkinMethodIcon: row.checkinMethodIcon,
-      checkoutTime: row.checkoutDisplay ?? (checkOutAt ? formatClock(checkOutAt) : 'In Progress'),
-      duration: formatDuration(row.durationMinutes),
-      statusType: row.statusType,
-      statusLabel: row.statusLabel,
-      locationName:
-        row.locationName ??
-        (row.siteId ? (raw.sites.find((s) => s.id === row.siteId)?.name ?? 'Unknown Site') : '—'),
-      locationDistance: row.locationDistance,
-      verifType: row.verifType,
-      verifLabel: row.verifLabel,
-      verifIcon: row.verifIcon,
-      coords: row.coords ? { lat: row.coords.lat, lng: row.coords.lng } : { lat: 0, lng: 0 },
-      toleranceRadius: row.toleranceRadius,
-      varianceDetail: row.varianceDetail,
-      terminalNode: row.terminalNode,
-      deviceBatterySignal: row.deviceBatterySignal,
-      livenessPassed: row.livenessPassed,
-      shaProof: row.shaProof,
-      notes: row.notes
-    }
-
-    return {
-      ...record,
-      checkInAt,
-      checkOutAt,
-      durationMinutes: row.durationMinutes,
-      distanceMeters: row.distanceMeters,
-      accuracyMeters: row.coords ? row.coords.accuracy : null,
-      insideFence: row.insideFence,
-      siteId: row.siteId,
-      punchDate
-    }
-  })
-
-  return { meta: { ...raw.meta, generatedAt: serverNow.toISOString() }, sites: raw.sites, records }
-}
-
-const fetchFromMock = (): Promise<AttendanceSnapshot> =>
-  new Promise((resolve) => {
-    setTimeout(() => resolve(hydrateMock()), 150)
-  })
+// (mock fallback removed)
 
 /** Load the attendance snapshot used by the audit table and the summary cards. */
+const fetchFromSupabase = async (): Promise<AttendanceSnapshot | null> => {
+  if (!isSupabaseConfigured()) return null
+  const rows = await supabaseService.getAttendance()
+  if (!rows || rows.length === 0) return null
+  const serverNow = new Date()
+  const records = rows.map((row: any) => {
+    const emp = row.employees ?? {}
+    const checkInAt = row.clock_in ?? null
+    const checkOutAt = row.clock_out ?? null
+    const checkinTime = checkInAt ? new Date(checkInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—'
+    const checkoutTime = checkOutAt ? new Date(checkOutAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'In Progress'
+    const durationMinutes = row.duration_minutes ?? 0
+    return {
+      id: row.employee_id,
+      name: emp.name ?? row.employee_id,
+      empId: row.employee_id,
+      avatar: '',
+      department: emp.department ?? '—',
+      shiftName: 'Shift 1',
+      shiftSchedule: '08:00 - 17:00',
+      checkinTime,
+      checkinMethod: 'GPS',
+      checkinMethodIcon: 'location_on',
+      checkoutTime,
+      duration: `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`,
+      statusType: row.is_inside_geofence ? 'present' : 'outside',
+      statusLabel: row.status ?? (row.is_inside_geofence ? 'Present' : 'Outside Radius'),
+      locationName: 'HQ Central Hub',
+      locationDistance: '0m',
+      verifType: 'gps',
+      verifLabel: 'Verified',
+      verifIcon: 'verified',
+      coords: { lat: row.latitude ?? 0, lng: row.longitude ?? 0 },
+      toleranceRadius: 250,
+      varianceDetail: '',
+      terminalNode: 'Node 1',
+      deviceBatterySignal: '—',
+      livenessPassed: true,
+      shaProof: '—',
+      notes: '',
+      checkInAt,
+      checkOutAt,
+      durationMinutes,
+      distanceMeters: null,
+      accuracyMeters: null,
+      insideFence: row.is_inside_geofence ?? true,
+      siteId: 'hq',
+      punchDate: checkInAt ? checkInAt.slice(0, 10) : serverNow.toISOString().slice(0, 10)
+    }
+  })
+  return { meta: { generatedAt: serverNow.toISOString(), expectedShiftStart: '08:00', gracePeriodMinutes: 15, totalEmployees: 0, organizationCounts: { present: 0, late: 0, absent: 0, leave: 0 }, averageDurationMinutes: 0, completionRatePercent: 0, geofenceRadiusMeters: 250, totalInsideFence: 0, totalOutsideFence: 0, anomalyCount: 0, lastSyncAt: serverNow.toISOString() } as any, sites: [], records }
+}
+
 export const fetchAttendanceSnapshot = async (): Promise<AttendanceSnapshot> => {
-  if (!isApiConfigured()) return fetchFromMock()
-  return apiGet<AttendanceSnapshot>(ATTENDANCE_ENDPOINT)
+  if (isApiConfigured()) return apiGet<AttendanceSnapshot>(ATTENDANCE_ENDPOINT)
+  try {
+    const fromSupabase = await fetchFromSupabase()
+    if (fromSupabase) return fromSupabase
+  } catch (error) {
+    console.error('[attendanceService] Supabase fetch failed', error)
+  }
+  return { meta: { generatedAt: new Date().toISOString(), expectedShiftStart: '08:00', gracePeriodMinutes: 15, totalEmployees: 0, organizationCounts: { present: 0, late: 0, absent: 0, leave: 0 }, punctualityScore: 0, punctualityTrendPercent: 0, attendanceRatePercent: 0, attendanceRateTrendPercent: 0, avgCheckInLabel: '—', workHoursLogged: 0, workHoursExpected: 0 }, sites: [], records: [] }
 }
 
 /**

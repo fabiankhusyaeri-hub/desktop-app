@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import directory from '../services/mock/employees.mock.json'
+import { isSupabaseConfigured, supabaseService } from '../services/supabaseService'
 import type { EmployeeEntry } from '../types/employee'
 
 export interface SearchResult {
@@ -16,9 +16,35 @@ export interface SearchResult {
   matchField: 'name' | 'id' | 'email' | 'department' | 'role'
 }
 
-const asEntry = (raw: unknown): EmployeeEntry => raw as EmployeeEntry
 
-const ALL_EMPLOYEES: EmployeeEntry[] = (directory.employees as unknown[]).map(asEntry)
+let ALL_EMPLOYEES: EmployeeEntry[] = []
+
+const loadEmployees = async (): Promise<void> => {
+  if (!isSupabaseConfigured()) return
+  const rows = await supabaseService.getEmployees()
+  if (!rows) return
+  ALL_EMPLOYEES = rows.map((raw: any) => ({
+    id: raw.id,
+    empId: raw.emp_id ?? raw.id,
+    name: raw.name,
+    email: raw.email ?? '',
+    rfidToken: raw.rfid_token ?? `RFID-${raw.id}`,
+    department: raw.department ?? 'IT Engineering',
+    role: raw.role ?? 'Field Operator',
+    geofence: raw.geofence ?? 'HQ Central Hub',
+    attendanceStatus: raw.attendance_status ?? 'present',
+    attendanceTime: raw.attendance_time ?? 'Registered Today',
+    locationState: raw.location_state ?? 'online',
+    locationDetail: raw.location_detail ?? 'Online',
+    lastPing: raw.last_ping ?? 'Just now',
+    avatar: raw.avatar ?? '',
+    gps: raw.gps_lat != null && raw.gps_lng != null
+      ? { lat: raw.gps_lat, lng: raw.gps_lng, accuracy: raw.gps_accuracy ?? 5 }
+      : null,
+    distanceMeters: raw.distance_meters ?? null,
+    updatedAt: raw.updated_at ?? new Date().toISOString()
+  }))
+}
 
 const FIELD_WEIGHT: Record<SearchResult['matchField'], number> = {
   name: 0,
@@ -75,6 +101,11 @@ export const useGlobalSearch = (limit = 6): GlobalSearchState => {
   const [isOpen, setIsOpen] = useState(false)
   const [shortcutActive, setShortcutActive] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const [, forceUpdate] = useState(0)
+
+  useEffect(() => {
+    void loadEmployees().then(() => forceUpdate((n) => n + 1))
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {

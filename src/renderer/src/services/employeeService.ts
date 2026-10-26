@@ -7,8 +7,8 @@
  * the page stays a pure renderer.
  */
 
-import mockSnapshot from './mock/employees.mock.json'
 import { apiDelete, apiGet, apiPatch, apiPost, isApiConfigured } from './apiClient'
+import { isSupabaseConfigured, supabaseService } from './supabaseService'
 import { formatTimestamp } from '../utils/datetime'
 import type {
   DirectorySnapshot,
@@ -56,61 +56,77 @@ export const VEHICLE_STATUS_ICON: Record<VehicleStatus, string> = {
 
 let cache: DirectorySnapshot | null = null
 
-const clone = (): DirectorySnapshot =>
-  JSON.parse(JSON.stringify(mockSnapshot)) as DirectorySnapshot
+const clone = (): DirectorySnapshot => ({
+  employees: [],
+  fleet: [],
+  meta: {
+    generatedAt: new Date().toISOString(),
+    totalHeadcount: 0,
+    fullTime: 0,
+    contractFleet: 0,
+    geofencedPersonnel: 0,
+    zoneIntegrityPercent: 0,
+    remoteFieldFleet: 0,
+    deviceHealthPercent: 0,
+    activePings: 0,
+    totalDevices: 0,
+    verifiedInside: 0,
+    perimeterBreaches: 0,
+    verifiedShiftPercent: 0,
+    heartbeatLatencyMs: 0
+  }
+})
 
-/**
- * Vehicle fix times are stored as `HH:mm:ss` on the feed day and composed
- * against the current server clock, so "last update" always reads as today.
- */
-const composeVehicleFix = (serverNow: Date, clock: string): string => {
-  const [h = '0', m = '0', s = '0'] = clock.split(':')
-  const date = new Date(serverNow.getTime())
-  date.setHours(Number(h), Number(m), Number(s), 0)
-  return date.toISOString()
+
+const fromSupabaseEmployee = (row: any): EmployeeEntry => ({
+  id: row.id,
+  empId: row.emp_id ?? row.id,
+  name: row.name,
+  email: row.email ?? '',
+  rfidToken: row.rfid_token ?? `RFID-${row.id}`,
+  department: row.department ?? 'IT Engineering',
+  role: row.role ?? 'Field Operator',
+  geofence: row.geofence ?? 'HQ Central Hub',
+  attendanceStatus: row.attendance_status ?? 'present',
+  attendanceTime: row.attendance_time ?? 'Registered Today',
+  locationState: row.location_state ?? 'online',
+  locationDetail: row.location_detail ?? 'Online',
+  lastPing: row.last_ping ?? 'Just now',
+  avatar: row.avatar ?? '',
+  gps:
+    row.gps_lat != null && row.gps_lng != null
+      ? { lat: row.gps_lat, lng: row.gps_lng, accuracy: row.gps_accuracy ?? 5 }
+      : null,
+  distanceMeters: row.distance_meters ?? null,
+  updatedAt: row.updated_at ?? new Date().toISOString()
+})
+
+const fetchFromSupabase = async (): Promise<DirectorySnapshot | null> => {
+  if (!isSupabaseConfigured()) return null
+  const rows = await supabaseService.getEmployees()
+  if (!rows || rows.length === 0) return null
+  const employees = rows.map(fromSupabaseEmployee)
+  if (!cache) cache = clone()
+  return {
+    ...cache,
+    employees,
+    meta: { ...cache.meta, generatedAt: new Date().toISOString() }
+  }
 }
 
-const stampFleet = (fleet: FleetVehicle[], serverNow: Date): FleetVehicle[] =>
-  fleet.map((vehicle) => ({
-    ...vehicle,
-    gps: vehicle.gps,
-    updatedAt: composeVehicleFix(serverNow, vehicle.updatedAt)
-  }))
-
-/** Lightweight simulation of the vehicle telematics feed between polls. */
-const advanceFleet = (previous: FleetVehicle[]): FleetVehicle[] =>
-  previous.map((vehicle) => {
-    if (vehicle.status === 'offline' || vehicle.status === 'maintenance') return { ...vehicle }
-
-    // Burn fuel and roll the odometer only while the engine is running.
-    const running = vehicle.status === 'moving'
-    const fuel = Math.max(0, vehicle.fuelPercent - (running ? 0.1 : 0.02))
-    const odometer = Math.round((vehicle.odometerKm + (running ? 0.06 : 0)) * 100) / 100
-    const speed =
-      vehicle.status === 'moving'
-        ? Math.max(8, Math.min(78, vehicle.speedKmh + (Math.sin(Date.now() / 20000 + vehicle.odometerKm) * 6)))
-        : 0
-    return { ...vehicle, fuelPercent: Math.round(fuel * 10) / 10, odometerKm: odometer, speedKmh: Math.round(speed) }
-  })
-
-const fetchFromMock = (): Promise<DirectorySnapshot> =>
-  new Promise((resolve) => {
-    setTimeout(() => {
-      const serverNow = new Date()
-      if (!cache) cache = clone()
-      cache = {
-        ...cache,
-        meta: { ...cache.meta, generatedAt: serverNow.toISOString() },
-        fleet: stampFleet(advanceFleet(cache.fleet), serverNow)
-      }
-      resolve(JSON.parse(JSON.stringify(cache)) as DirectorySnapshot)
-    }, 130)
-  })
 
 /** Full directory + fleet snapshot used by the page. */
 export const fetchDirectorySnapshot = async (): Promise<DirectorySnapshot> => {
-  if (!isApiConfigured()) return fetchFromMock()
-  return apiGet<DirectorySnapshot>(DIRECTORY_ENDPOINT)
+  if (isApiConfigured()) return apiGet<DirectorySnapshot>(DIRECTORY_ENDPOINT)
+  try {
+    const fromSupabase = await fetchFromSupabase()
+    if (fromSupabase) return fromSupabase
+  } catch (error) {
+    console.error('[employeeService] Supabase fetch failed', error)
+  }
+  // No mock fallback: return empty snapshot.
+  if (!cache) cache = clone()
+  return JSON.parse(JSON.stringify(cache)) as DirectorySnapshot
 }
 
 /** Derive the counters shown in the fleet summary card. */
