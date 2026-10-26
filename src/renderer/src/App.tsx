@@ -5,6 +5,9 @@ import Dashboard from './pages/Dashboard'
 import LiveMonitoring from './pages/LiveMonitoring'
 import Employees from './pages/Employees'
 import Attendance from './pages/Attendance'
+import LocationView from './views/LocationView'
+import ReportsView from './views/ReportsView'
+import SettingsView from './views/SettingsView'
 
 const App: React.FC = () => {
   return (
@@ -15,6 +18,9 @@ const App: React.FC = () => {
         <Route path="/live-monitoring" element={<LiveMonitoring />} />
         <Route path="/employees" element={<Employees />} />
         <Route path="/attendance" element={<Attendance />} />
+        <Route path="/location" element={<LocationView />} />
+        <Route path="/reports" element={<ReportsView />} />
+        <Route path="/settings" element={<SettingsView />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AppShell>

@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "on-error": "#ffffff", "secondary-fixed-dim": "#9acbff", "surface-container": "#edecff", "surface-variant": "#dee0ff", "primary-fixed": "#dfe0ff", "error-container": "#ffdad6", "on-background": "#161a33", "primary-container": "#3a4efb", "on-tertiary": "#ffffff", "on-primary": "#ffffff", "error": "#ba1a1a", "on-primary-fixed": "#000965", "surface-container-highest": "#dee0ff", "on-secondary-fixed": "#001d34", "on-tertiary-fixed-variant": "#414b00", "on-tertiary-fixed": "#191e00", "tertiary-fixed-dim": "#b9d300", "on-surface-variant": "#444656", "on-error-container": "#93000a", "inverse-primary": "#bdc2ff", "on-secondary-container": "#003c63", "outline": "#757688", "on-surface": "#161a33", "primary-fixed-dim": "#bdc2ff", "primary": "#152de4", "on-secondary-fixed-variant": "#004a78", "on-tertiary-container": "#d7f32d", "surface": "#fbf8ff", "tertiary": "#495400", "tertiary-fixed": "#d4f029", "on-primary-container": "#e2e3ff", "on-secondary": "#ffffff", "surface-dim": "#d5d8fa", "surface-container-low": "#f4f2ff", "surface-bright": "#fbf8ff", "tertiary-container": "#5f6d00", "inverse-on-surface": "#f0efff", "secondary-fixed": "#cfe5ff", "surface-tint": "#3044f3", "background": "#fbf8ff", "outline-variant": "#c5c5d9", "secondary": "#00629e", "surface-container-high": "#e5e6ff", "secondary-container": "#3ca9ff", "on-primary-fixed-variant": "#0020dd", "surface-container-lowest": "#ffffff", "inverse-surface": "#2b2f49" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "space-md": "1rem", "space-sm": "0.5rem", "margin": "1.5rem", "space-xs": "0.25rem", "space-xl": "2rem", "space-lg": "1.5rem", "gutter": "1.25rem" }, "fontFamily": { "headline-xl": [ "Plus Jakarta Sans" ], "numeric-mono": [ "Inter" ], "title-md": [ "Plus Jakarta Sans" ], "body-md": [ "Inter" ], "numeric-metric": [ "Plus Jakarta Sans" ], "body-lg": [ "Inter" ], "label-md": [ "Inter" ], "headline-lg-mobile": [ "Plus Jakarta Sans" ], "label-sm": [ "Inter" ], "headline-md": [ "Plus Jakarta Sans" ], "headline-xl-mobile": [ "Plus Jakarta Sans" ], "body-sm": [ "Inter" ], "headline-lg": [ "Plus Jakarta Sans" ] }, "fontSize": { "headline-xl": [ "36px", { "lineHeight": "44px", "fontWeight": "700" } ], "numeric-mono": [ "13px", { "lineHeight": "18px", "fontWeight": "500" } ], "title-md": [ "16px", { "lineHeight": "24px", "fontWeight": "600" } ], "body-md": [ "14px", { "lineHeight": "20px", "fontWeight": "400" } ], "numeric-metric": [ "32px", { "lineHeight": "38px", "fontWeight": "700" } ], "body-lg": [ "16px", { "lineHeight": "24px", "fontWeight": "400" } ], "label-md": [ "13px", { "lineHeight": "18px", "fontWeight": "600" } ], "headline-lg-mobile": [ "22px", { "lineHeight": "30px", "fontWeight": "600" } ], "label-sm": [ "11px", { "lineHeight": "14px", "fontWeight": "600" } ], "headline-md": [ "20px", { "lineHeight": "28px", "fontWeight": "600" } ], "headline-xl-mobile": [ "28px", { "lineHeight": "36px", "fontWeight": "700" } ], "body-sm": [ "12px", { "lineHeight": "16px", "fontWeight": "400" } ], "headline-lg": [ "28px", { "lineHeight": "36px", "fontWeight": "600" } ] } } } };</script></head><body class="bg-background font-body-md text-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-full w-64 bg-inverse-surface z-50 flex flex-col justify-between shadow-[0_1px_8px_rgba(0,0,0,0.06)]"><div class="flex flex-col"><div class="h-16 px-space-md flex items-center gap-space-sm bg-inverse-surface"><img alt="Vanguard FieldOps Radar Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1UWJ4fBfypplT2TfmlLL_wArhrhdXTTny7jvpx3yzxK4gEz79BpmH78o0Lgk05AZYZC3CkRiKF2hS7RLnQXs7MGZlSEKEFuPIi5WAbSEGDK9xR3BXW2UBzyRApO9M5uiMN0ueH-K3TRn1-wt11Jfvodc_KW6o8mMk85HfVwuw5OSnuIioN2XnOpYugfw8e5fbcYTojG9JEnUFHq8AoO5zVRj0AI9_-H9m0obeTrL6Nz"/><div class="flex flex-col min-w-0"><span class="font-title-md text-title-md text-inverse-on-surface tracking-tight truncate leading-tight">Vanguard FieldOps</span><span class="font-label-sm text-label-sm text-surface-dim opacity-75 truncate leading-tight">Enterprise Attendance &amp; Live GPS</span></div></div><div class="px-space-md py-space-sm"><div class="h-px bg-surface-container/10 w-full"></div></div><nav class="flex flex-col gap-1 px-space-sm" data-active-classes="bg-primary-container text-on-primary font-bold shadow-[0_2px_8px_rgba(58,78,251,0.35)] before:absolute before:left-0 before:top-2 before:bottom-2 before:w-1 before:bg-tertiary-fixed before:rounded-r-full"><a class="relative flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-surface-dim hover:bg-surface-variant/10 hover:text-inverse-on-surface transition-all group" data-path="dashboard" href="/dashboard"><span class="font-label-md text-label-md truncate">Dashboard</span></a><a class="relative flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-surface-dim hover:bg-surface-variant/10 hover:text-inverse-on-surface transition-all group" data-path="live-monitoring" href="/live-monitoring"><span class="font-label-md text-label-md truncate">Live Monitoring</span></a><a class="relative flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-surface-dim hover:bg-surface-variant/10 hover:text-inverse-on-surface transition-all group" data-path="employees" href="/employees"><span class="font-label-md text-label-md truncate">Employees</span></a><a class="relative flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-surface-dim hover:bg-surface-variant/10 hover:text-inverse-on-surface transition-all group" data-path="attendance" href="/attendance"><span class="font-label-md text-label-md truncate">Attendance</span></a><a class="relative flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-surface-dim hover:bg-surface-variant/10 hover:text-inverse-on-surface transition-all group" data-path="locations" href="/locations"><span class="font-label-md text-label-md truncate">Locations</span></a><a class="relative flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-surface-dim hover:bg-surface-variant/10 hover:text-inverse-on-surface transition-all group" data-path="reports" href="/reports"><span class="font-label-md text-label-md truncate">Reports</span></a><a class="relative flex items-center gap-space-sm px-space-md py-2.5 rounded-lg text-surface-dim hover:bg-surface-variant/10 hover:text-inverse-on-surface transition-all group" data-path="settings" href="/settings"><span class="font-label-md text-label-md truncate">Settings</span></a></nav></div><div class="p-space-sm bg-inverse-surface"><div class="rounded-lg p-space-sm bg-surface-variant/5 flex items-center justify-between gap-space-xs"><div class="flex items-center gap-space-sm min-w-0"><img alt="Sarah Jenkins" class="w-8 h-8 rounded-full object-cover shrink-0 ring-2 ring-surface-dim/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz_1IElxGVAr-brgy0EQUmBVyqhHTB0sZ7PKLe_AS0eVgbljLVFKAU80T7xdImGy0yi0R2OQKXSMfu-m8_aUgCi4Zn1VYbhpxYgaNGwyVa1v-JVdYJFWOg4MzTmvPeuOOBXhEzZV0iq3Yam8WPew3edwP2xojx7WSF1Cn4Ob9voIcPhjM2FIM6dHNNrjvYgX_c6MwKo-zgjznxWlDa4cDZEgtlcVhK5BhTZ8Y32vc"/><div class="flex flex-col min-w-0"><span class="font-label-md text-label-md text-inverse-on-surface truncate leading-tight">Sarah Jenkins</span><span class="font-label-sm text-label-sm text-surface-dim opacity-75 truncate leading-tight">Super Admin / HR Dir</span></div></div><div class="flex items-center"><a class="p-1.5 text-surface-dim hover:text-inverse-on-surface hover:bg-surface-variant/10 rounded transition-colors" href="/settings" title="Settings"><span class="material-symbols-outlined text-lg leading-none">settings</span></a><button class="p-1.5 text-surface-dim hover:text-error hover:bg-surface-variant/10 rounded transition-colors" title="Logout" type="button"><span class="material-symbols-outlined text-lg leading-none">logout</span></button></div></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface-bright/90 backdrop-blur-xl z-40 shadow-[0_1px_8px_rgba(0,0,0,0.03)]"><div class="w-full h-16 px-space-lg flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-lg"><div class="hidden xl:flex items-center gap-space-md pl-space-xs"><div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-inverse-surface"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary-fixed"></span></span><span class="font-label-sm text-label-sm text-on-tertiary-container tracking-wide uppercase">System Online</span></div><div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high"><span class="h-2 w-2 rounded-full bg-secondary-container"></span><span class="font-label-sm text-label-sm text-on-secondary-container tracking-wide">Realtime Connected</span></div></div></div><div class="flex items-center gap-space-md"><div class="relative hidden sm:block"><span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg pointer-events-none">search</span><input class="w-64 lg:w-72 pl-9 pr-12 py-1.5 h-10 rounded-lg bg-surface-container-lowest font-body-sm text-body-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary-container/20 shadow-[0_1px_3px_rgba(37,41,67,0.04)]" placeholder="Search employee, department..." type="text"/><kbd class="absolute right-2.5 top-1/2 -translate-y-1/2 font-numeric-mono text-label-sm px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant pointer-events-none">⌘K</kbd></div><div class="hidden md:flex flex-col text-right pr-space-xs"><span class="font-label-md text-label-md text-on-surface leading-tight">Mon, Oct 28</span><span class="font-numeric-mono text-label-sm text-outline leading-tight">10:42:15 AM EST</span></div><div class="relative"><button class="relative p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" title="Notifications" type="button"><span class="material-symbols-outlined text-xl">notifications</span><span class="absolute top-1.5 right-1.5 flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-error"></span></span></button></div><div class="flex items-center gap-space-xs pl-space-xs cursor-pointer group"><img alt="Sarah Jenkins" class="w-8 h-8 rounded-full object-cover ring-2 ring-surface-container-highest group-hover:ring-primary transition-all" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz_1IElxGVAr-brgy0EQUmBVyqhHTB0sZ7PKLe_AS0eVgbljLVFKAU80T7xdImGy0yi0R2OQKXSMfu-m8_aUgCi4Zn1VYbhpxYgaNGwyVa1v-JVdYJFWOg4MzTmvPeuOOBXhEzZV0iq3Yam8WPew3edwP2xojx7WSF1Cn4Ob9voIcPhjM2FIM6dHNNrjvYgX_c6MwKo-zgjznxWlDa4cDZEgtlcVhK5BhTZ8Y32vc"/><span class="material-symbols-outlined text-lg text-outline group-hover:text-on-surface transition-colors">arrow_drop_down</span></div></div></div></header><main class="w-full pt-16 bg-background min-h-screen"><div class="flex flex-col w-full">
+<!-- Sub-Header Workspace Canvas -->
+<div class="px-space-lg py-space-md flex flex-col gap-space-lg max-w-[1600px] mx-auto w-full">
+<!-- Top Command & Action Bar -->
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md">
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-numeric-mono text-label-sm uppercase tracking-wider text-primary font-semibold">FACILITY &amp; BOUNDS MANAGEMENT</span>
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container font-numeric-mono text-label-sm text-on-surface-variant font-medium">Geofence Engine v4.8</span>
+</div>
+<div class="flex items-baseline gap-space-sm mt-1">
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Locations</h1>
+<span class="font-body-md text-body-md text-on-surface-variant">Manage office locations and attendance geofences</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm self-start lg:self-auto">
+<button class="flex items-center gap-2 px-space-md py-2.5 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-surface-container transition-all shadow-sm" id="bulkSyncBtn">
+<span class="material-symbols-outlined text-lg text-primary">sync</span>
+<span class="font-label-md text-label-md">Bulk Geofence Sync</span>
+</button>
+<button class="flex items-center gap-2 px-space-md py-2.5 rounded-lg bg-primary-container text-on-primary hover:opacity-95 transition-all shadow-[0_4px_14px_rgba(58,78,251,0.3)]" id="openModalBtn">
+<span class="material-symbols-outlined text-lg leading-none">add_location_alt</span>
+<span class="font-label-md text-label-md font-semibold">+ Add Location</span>
+</button>
+</div>
+</div>
+<!-- 4 KPI Telemetry Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-space-md">
+<!-- Card 1 -->
+<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute right-0 top-0 w-24 h-24 bg-primary-container/5 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110"></div>
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Total Locations</span>
+<span class="p-2 rounded-lg bg-surface-container text-primary material-symbols-outlined text-lg">domain</span>
+</div>
+<div class="mt-space-md">
+<div class="flex items-baseline gap-2">
+<span class="font-numeric-metric text-numeric-metric text-on-surface">8</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Locations</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-label-sm font-label-sm bg-primary/10 text-primary font-semibold">6 Active</span>
+<span class="font-body-sm text-body-sm text-outline">2 Inactive</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute right-0 top-0 w-24 h-24 bg-tertiary-fixed/15 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110"></div>
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Active Locations</span>
+<div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-inverse-surface">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary-fixed"></span>
+</span>
+<span class="font-label-sm text-label-sm text-on-tertiary-container">100% ONLINE</span>
+</div>
+</div>
+<div class="mt-space-md">
+<div class="flex items-baseline gap-2">
+<span class="font-numeric-metric text-numeric-metric text-on-surface">6</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Perimeters Active</span>
+</div>
+<div class="flex items-center gap-1 mt-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm text-tertiary">check_circle</span>
+<span class="font-body-sm text-body-sm">Telemetry streaming real-time</span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden group">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Inactive Locations</span>
+<span class="p-2 rounded-lg bg-surface-container-high text-on-surface-variant material-symbols-outlined text-lg">pause_circle</span>
+</div>
+<div class="mt-space-md">
+<div class="flex items-baseline gap-2">
+<span class="font-numeric-metric text-numeric-metric text-on-surface">2</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Dormant</span>
+</div>
+<p class="font-body-sm text-body-sm text-outline mt-1 truncate">Scheduled maintenance &amp; standby</p>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute right-0 top-0 w-24 h-24 bg-secondary-container/10 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110"></div>
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant">Employees Assigned</span>
+<span class="p-2 rounded-lg bg-secondary-fixed text-on-secondary-fixed material-symbols-outlined text-lg">badge</span>
+</div>
+<div class="mt-space-md">
+<div class="flex items-baseline gap-2">
+<span class="font-numeric-metric text-numeric-metric text-on-surface">128</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Rostered</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="font-numeric-mono text-label-sm text-secondary font-medium">114 On-Premises</span>
+<span class="text-outline-variant">•</span>
+<span class="font-numeric-mono text-label-sm text-on-surface-variant">14 Field Units</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Toolbar: Search, Filters & View Selectors -->
+<div class="p-space-md bg-surface-container-lowest rounded-xl shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-space-md">
+<div class="flex flex-wrap items-center gap-space-sm flex-1">
+<!-- Search Input -->
+<div class="relative min-w-[280px] sm:min-w-[340px] flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg pointer-events-none">search</span>
+<input class="w-full pl-9 pr-10 py-2 rounded-lg bg-surface-container-low text-on-surface placeholder:text-outline font-body-sm text-body-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" id="searchInput" placeholder="Search location by name, site code, or address..." type="text"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface hidden" id="clearSearchBtn" type="button">
+<span class="material-symbols-outlined text-sm">close</span>
+</button>
+</div>
+<!-- Status Filter Dropdown -->
+<div class="relative">
+<select class="appearance-none bg-surface-container-low text-on-surface font-label-md text-label-md py-2 pl-3.5 pr-8 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20" id="statusFilter">
+<option value="all">All Statuses (Active, Inactive)</option>
+<option value="active">Active Only</option>
+<option value="inactive">Inactive Only</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-outline text-lg pointer-events-none">expand_more</span>
+</div>
+<!-- Radius Filter Dropdown -->
+<div class="relative">
+<select class="appearance-none bg-surface-container-low text-on-surface font-label-md text-label-md py-2 pl-3.5 pr-8 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20" id="radiusFilter">
+<option value="all">All Radii (&lt;150m, 250m, 500m)</option>
+<option value="150">≤ 150m (Compact Zones)</option>
+<option value="250">200m – 350m (Campuses)</option>
+<option value="500">≥ 400m (Large Logistics)</option>
+</select>
+<span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-outline text-lg pointer-events-none">expand_more</span>
+</div>
+<!-- Reset Button -->
+<button class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-low transition-all" id="resetFiltersBtn" title="Reset Filters">
+<span class="material-symbols-outlined text-sm">restart_alt</span>
+<span class="font-label-md text-label-md">Reset</span>
+</button>
+</div>
+<!-- State & Layout Toggles -->
+<div class="flex items-center justify-between sm:justify-end gap-space-sm pt-space-xs xl:pt-0">
+<!-- Interactive State Demo Tab (Requested edge states demo) -->
+<div class="flex items-center gap-1 bg-surface-container-low p-1 rounded-lg">
+<button class="px-2.5 py-1 rounded-md bg-surface-container-lowest font-label-sm text-label-sm text-primary font-semibold shadow-xs" id="tabNormalState">Live Telemetry</button>
+<button class="px-2.5 py-1 rounded-md text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm" id="tabEmptyState">Simulate Empty</button>
+</div>
+<!-- View Segmented Switch -->
+<div class="flex items-center bg-surface-container p-1 rounded-lg">
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-container-lowest text-primary shadow-xs font-label-md text-label-md" id="viewTableBtn">
+<span class="material-symbols-outlined text-base">table_rows</span>
+<span>Table</span>
+</button>
+<button class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface font-label-md text-label-md" id="viewSplitBtn">
+<span class="material-symbols-outlined text-base">split_scene</span>
+<span>Map Split</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Main Dynamic Layout Container: Table + Collapsible Map Split Pane -->
+<div class="grid grid-cols-12 gap-space-md items-start">
+<!-- Locations Data Table Card (Spans full or 8 cols in split mode) -->
+<div class="col-span-12 transition-all duration-300" id="tableContainerCol">
+<div class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col">
+<!-- Sync Cadence Status Ribbon -->
+<div class="px-space-md py-2 bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="inline-block w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+<span class="font-numeric-mono text-label-sm text-on-surface-variant">Realtime Sync Online (10s cadence) • All boundary nodes responding</span>
+</div>
+<span class="font-numeric-mono text-label-sm text-outline hidden sm:inline">Active Nodes: 6 / 8</span>
+</div>
+<!-- The Table -->
+<div class="overflow-x-auto w-full">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-high/40 text-on-surface-variant">
+<th class="py-3 px-space-md font-label-sm text-label-sm uppercase tracking-wider">Location &amp; Code</th>
+<th class="py-3 px-space-md font-label-sm text-label-sm uppercase tracking-wider">Verified Address</th>
+<th class="py-3 px-space-md font-label-sm text-label-sm uppercase tracking-wider">Assigned Roster</th>
+<th class="py-3 px-space-md font-label-sm text-label-sm uppercase tracking-wider">Geofence Radius</th>
+<th class="py-3 px-space-md font-label-sm text-label-sm uppercase tracking-wider">State</th>
+<th class="py-3 px-space-md font-label-sm text-label-sm uppercase tracking-wider">Last Telemetry</th>
+<th class="py-3 px-space-md font-label-sm text-label-sm uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-high/60 font-body-md text-body-md" id="locationsTableBody">
+<!-- Row 1: Vanguard Global HQ -->
+<tr class="hover:bg-surface-container-low/70 transition-colors group cursor-pointer" onclick="selectLocationRow('HQ-01', 'Vanguard Global HQ', '37.7749° N', '122.4194° W', '250m')">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-primary-container text-on-primary flex items-center justify-center font-title-md shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-lg">corporate_fare</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate group-hover:text-primary transition-colors">Vanguard Global HQ</span>
+<div class="flex items-center gap-1.5">
+<span class="font-numeric-mono text-label-sm text-outline">CODE: HQ-01</span>
+<span class="text-outline-variant">•</span>
+<span class="font-numeric-mono text-label-sm text-secondary">Primary Core</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="text-on-surface font-body-sm line-clamp-1">742 Evergreen Blvd, Metro District, CA</span>
+<span class="font-numeric-mono text-label-sm text-outline">Zone: US-West-1A</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<div class="w-20 bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 85%;"></div>
+</div>
+<span class="font-numeric-mono text-label-md text-on-surface font-medium">64 Staff</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container/20 text-on-secondary-container font-numeric-mono text-label-sm font-semibold">
+<span class="material-symbols-outlined text-xs">radar</span> 250m
+                    </span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-inverse-surface">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary-fixed"></span>
+</span>
+<span class="font-label-sm text-label-sm text-on-tertiary-container tracking-wide font-medium">Active</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-mono text-label-sm text-on-surface">Today, 08:30 AM</span>
+<span class="block font-label-sm text-label-sm text-outline">Ping: 14ms</span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="flex items-center justify-end gap-1" onclick="event.stopPropagation()">
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" title="View details on radar">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors edit-row-btn" data-site="HQ-01" title="Edit Geofence">
+<span class="material-symbols-outlined text-lg">edit_location</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors" title="Deactivate perimeter">
+<span class="material-symbols-outlined text-lg">pause_circle</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2: East Logistics Hub -->
+<tr class="hover:bg-surface-container-low/70 transition-colors group cursor-pointer" onclick="selectLocationRow('BR-04', 'East Logistics Hub', '40.7128° N', '74.0060° W', '400m')">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-secondary text-on-secondary flex items-center justify-center font-title-md shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-lg">warehouse</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate group-hover:text-primary transition-colors">East Logistics Hub</span>
+<div class="flex items-center gap-1.5">
+<span class="font-numeric-mono text-label-sm text-outline">CODE: BR-04</span>
+<span class="text-outline-variant">•</span>
+<span class="font-numeric-mono text-label-sm text-on-surface-variant">Distribution</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="text-on-surface font-body-sm line-clamp-1">1120 Industrial Parkway, Newark, NJ</span>
+<span class="font-numeric-mono text-label-sm text-outline">Zone: US-East-2B</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<div class="w-20 bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 55%;"></div>
+</div>
+<span class="font-numeric-mono text-label-md text-on-surface font-medium">28 Staff</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container/20 text-on-secondary-container font-numeric-mono text-label-sm font-semibold">
+<span class="material-symbols-outlined text-xs">radar</span> 400m
+                    </span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-inverse-surface">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary-fixed"></span>
+</span>
+<span class="font-label-sm text-label-sm text-on-tertiary-container tracking-wide font-medium">Active</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-mono text-label-sm text-on-surface">Today, 08:26 AM</span>
+<span class="block font-label-sm text-label-sm text-outline">Ping: 22ms</span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="flex items-center justify-end gap-1" onclick="event.stopPropagation()">
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" title="View details">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors edit-row-btn" data-site="BR-04" title="Edit Geofence">
+<span class="material-symbols-outlined text-lg">edit_location</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors" title="Deactivate perimeter">
+<span class="material-symbols-outlined text-lg">pause_circle</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3: Pacific Tech Center -->
+<tr class="hover:bg-surface-container-low/70 transition-colors group cursor-pointer" onclick="selectLocationRow('BR-02', 'Pacific Tech Center', '47.6062° N', '122.3321° W', '150m')">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-surface-container-highest text-primary flex items-center justify-center font-title-md shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-lg">memory</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate group-hover:text-primary transition-colors">Pacific Tech Center</span>
+<div class="flex items-center gap-1.5">
+<span class="font-numeric-mono text-label-sm text-outline">CODE: BR-02</span>
+<span class="text-outline-variant">•</span>
+<span class="font-numeric-mono text-label-sm text-on-surface-variant">R&amp;D Lab</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="text-on-surface font-body-sm line-clamp-1">890 Innovation Way, Suite 400, Seattle, WA</span>
+<span class="font-numeric-mono text-label-sm text-outline">Zone: US-West-2A</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<div class="w-20 bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 40%;"></div>
+</div>
+<span class="font-numeric-mono text-label-md text-on-surface font-medium">19 Staff</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-primary font-numeric-mono text-label-sm font-semibold">
+<span class="material-symbols-outlined text-xs">radar</span> 150m
+                    </span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-inverse-surface">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary-fixed"></span>
+</span>
+<span class="font-label-sm text-label-sm text-on-tertiary-container tracking-wide font-medium">Active</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-mono text-label-sm text-on-surface">Today, 08:15 AM</span>
+<span class="block font-label-sm text-label-sm text-outline">Ping: 31ms</span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="flex items-center justify-end gap-1" onclick="event.stopPropagation()">
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" title="View details">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors edit-row-btn" data-site="BR-02" title="Edit Geofence">
+<span class="material-symbols-outlined text-lg">edit_location</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors" title="Deactivate perimeter">
+<span class="material-symbols-outlined text-lg">pause_circle</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 4: South Assembly Plant -->
+<tr class="hover:bg-surface-container-low/70 transition-colors group cursor-pointer" onclick="selectLocationRow('BR-03', 'South Assembly Plant', '32.7767° N', '96.7970° W', '500m')">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-surface-container-high text-on-surface-variant flex items-center justify-center font-title-md shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-lg">precision_manufacturing</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate group-hover:text-primary transition-colors">South Assembly Plant</span>
+<div class="flex items-center gap-1.5">
+<span class="font-numeric-mono text-label-sm text-outline">CODE: BR-03</span>
+<span class="text-outline-variant">•</span>
+<span class="font-numeric-mono text-label-sm text-on-surface-variant">Manufacturing</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="text-on-surface font-body-sm line-clamp-1">450 Falcon Drive, Dallas, TX</span>
+<span class="font-numeric-mono text-label-sm text-outline">Zone: US-South-1</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<div class="w-20 bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 28%;"></div>
+</div>
+<span class="font-numeric-mono text-label-md text-on-surface font-medium">12 Staff</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container/20 text-on-secondary-container font-numeric-mono text-label-sm font-semibold">
+<span class="material-symbols-outlined text-xs">radar</span> 500m
+                    </span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-inverse-surface">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-tertiary-fixed"></span>
+</span>
+<span class="font-label-sm text-label-sm text-on-tertiary-container tracking-wide font-medium">Active</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-mono text-label-sm text-on-surface">Today, 07:45 AM</span>
+<span class="block font-label-sm text-label-sm text-outline">Ping: 19ms</span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="flex items-center justify-end gap-1" onclick="event.stopPropagation()">
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" title="View details">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors edit-row-btn" data-site="BR-03" title="Edit Geofence">
+<span class="material-symbols-outlined text-lg">edit_location</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-error-container text-on-surface-variant hover:text-error transition-colors" title="Deactivate perimeter">
+<span class="material-symbols-outlined text-lg">pause_circle</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 5: North Distribution Center -->
+<tr class="hover:bg-surface-container-low/70 transition-colors group cursor-pointer" onclick="selectLocationRow('BR-05', 'North Distribution Center', '41.8781° N', '87.6298° W', '350m')">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-surface-container text-outline flex items-center justify-center font-title-md shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-lg">inventory_2</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate group-hover:text-primary transition-colors">North Distribution Center</span>
+<div class="flex items-center gap-1.5">
+<span class="font-numeric-mono text-label-sm text-outline">CODE: BR-05</span>
+<span class="text-outline-variant">•</span>
+<span class="font-numeric-mono text-label-sm text-outline">Maint. Offline</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="text-on-surface font-body-sm line-clamp-1">800 Lake Shore Way, Chicago, IL</span>
+<span class="font-numeric-mono text-label-sm text-outline">Zone: US-Central-1</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<div class="w-20 bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-outline h-full rounded-full" style="width: 12%;"></div>
+</div>
+<span class="font-numeric-mono text-label-md text-on-surface font-medium">5 Staff</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-numeric-mono text-label-sm font-semibold">
+<span class="material-symbols-outlined text-xs">radar</span> 350m
+                    </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+                      Inactive
+                    </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-mono text-label-sm text-on-surface-variant">Yesterday, 18:00</span>
+<span class="block font-label-sm text-label-sm text-outline">Sensor Offline</span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="flex items-center justify-end gap-1" onclick="event.stopPropagation()">
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" title="View details">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors edit-row-btn" data-site="BR-05" title="Edit Geofence">
+<span class="material-symbols-outlined text-lg">edit_location</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" title="Activate perimeter">
+<span class="material-symbols-outlined text-lg">play_circle</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 6: West Coast Satellite -->
+<tr class="hover:bg-surface-container-low/70 transition-colors group cursor-pointer" onclick="selectLocationRow('BR-06', 'West Coast Satellite', '34.0522° N', '118.2437° W', '200m')">
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-lg bg-surface-container text-outline flex items-center justify-center font-title-md shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-lg">apartment</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-title-md text-title-md text-on-surface truncate group-hover:text-primary transition-colors">West Coast Satellite</span>
+<div class="flex items-center gap-1.5">
+<span class="font-numeric-mono text-label-sm text-outline">CODE: BR-06</span>
+<span class="text-outline-variant">•</span>
+<span class="font-numeric-mono text-label-sm text-outline">Standby Depot</span>
+</div>
+</div>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="text-on-surface font-body-sm line-clamp-1">334 Ocean Boulevard, Los Angeles, CA</span>
+<span class="font-numeric-mono text-label-sm text-outline">Zone: US-West-1C</span>
+</td>
+<td class="py-3.5 px-space-md">
+<div class="flex items-center gap-2">
+<div class="w-20 bg-surface-container rounded-full h-1.5 overflow-hidden">
+<div class="bg-outline h-full rounded-full" style="width: 0%;"></div>
+</div>
+<span class="font-numeric-mono text-label-md text-outline font-medium">0 Staff</span>
+</div>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-numeric-mono text-label-sm font-semibold">
+<span class="material-symbols-outlined text-xs">radar</span> 200m
+                    </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+                      Dormant
+                    </span>
+</td>
+<td class="py-3.5 px-space-md">
+<span class="font-numeric-mono text-label-sm text-on-surface-variant">Oct 24, 2024</span>
+<span class="block font-label-sm text-label-sm text-outline">Dormant Mode</span>
+</td>
+<td class="py-3.5 px-space-md text-right">
+<div class="flex items-center justify-end gap-1" onclick="event.stopPropagation()">
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" title="View details">
+<span class="material-symbols-outlined text-lg">visibility</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors edit-row-btn" data-site="BR-06" title="Edit Geofence">
+<span class="material-symbols-outlined text-lg">edit_location</span>
+</button>
+<button class="p-1.5 rounded-md hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors" title="Activate perimeter">
+<span class="material-symbols-outlined text-lg">play_circle</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Simulated Empty State Block (Controlled by simulator toggle) -->
+<div class="hidden py-16 px-space-lg flex-col items-center justify-center text-center" id="simulatedEmptyBlock">
+<div class="w-16 h-16 rounded-2xl bg-surface-container flex items-center justify-center text-primary mb-space-md">
+<span class="material-symbols-outlined text-3xl">location_off</span>
+</div>
+<h3 class="font-headline-md text-headline-md text-on-surface">No locations found matching query</h3>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-md mt-1">We couldn't find any active or inactive office geofences matching your specified criteria. Try clearing search filters or add a new location perimeter.</p>
+<div class="flex items-center gap-space-sm mt-space-md">
+<button class="px-space-md py-2 rounded-lg bg-surface-container font-label-md text-label-md text-on-surface hover:bg-surface-container-high transition-colors" onclick="document.getElementById('tabNormalState').click()">Clear Search &amp; Filters</button>
+<button class="px-space-md py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:opacity-95 transition-opacity" onclick="document.getElementById('openModalBtn').click()">+ Add New Site</button>
+</div>
+</div>
+<!-- Table Pagination Footer -->
+<div class="px-space-md py-3.5 bg-surface-container-low flex flex-col sm:flex-row items-center justify-between gap-space-sm">
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="font-body-sm text-body-sm">Showing</span>
+<span class="font-numeric-mono text-label-md text-on-surface font-semibold">1 – 6</span>
+<span class="font-body-sm text-body-sm">of</span>
+<span class="font-numeric-mono text-label-md text-on-surface font-semibold">8 locations</span>
+</div>
+<div class="flex items-center gap-1.5">
+<button class="p-1.5 rounded-lg text-outline hover:bg-surface-container hover:text-on-surface disabled:opacity-40 transition-colors" disabled="" title="Previous Page">
+<span class="material-symbols-outlined text-lg leading-none">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-lg bg-primary-container text-on-primary font-numeric-mono text-label-sm font-semibold flex items-center justify-center shadow-xs">1</button>
+<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container font-numeric-mono text-label-sm font-medium flex items-center justify-center transition-colors">2</button>
+<button class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" title="Next Page">
+<span class="material-symbols-outlined text-lg leading-none">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Telemetry & GIS Mini-Canvas (Displayed in Split View) -->
+<div class="col-span-12 xl:col-span-4 hidden flex-col gap-space-md" id="splitMapPane">
+<!-- Live Selected Node GIS Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">satellite_alt</span>
+<h2 class="font-title-md text-title-md text-on-surface">Live Perimeter Telemetry</h2>
+</div>
+<button class="p-1 rounded-md text-outline hover:text-on-surface hover:bg-surface-container" id="closeSplitBtn">
+<span class="material-symbols-outlined text-base">close</span>
+</button>
+</div>
+<!-- Interactive Simulated Map Widget -->
+<div class="relative w-full h-64 rounded-lg bg-inverse-surface overflow-hidden shadow-inner flex items-center justify-center">
+<!-- Simulated Dark Map Canvas Grid -->
+<div class="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#3a4efb_1px,transparent_1px),linear-gradient(to_bottom,#3a4efb_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+<!-- Concentric Geofence Boundary Rings -->
+<div class="absolute w-48 h-48 rounded-full border border-secondary/40 bg-secondary/10 flex items-center justify-center animate-pulse">
+<div class="w-32 h-32 rounded-full border border-primary-container/60 bg-primary/10 flex items-center justify-center">
+<!-- Center Marker -->
+<div class="w-10 h-10 rounded-full bg-inverse-surface border-2 border-tertiary-fixed shadow-[0_0_15px_rgba(212,240,41,0.6)] flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-tertiary-fixed text-lg">corporate_fare</span>
+</div>
+</div>
+</div>
+<!-- Floating Live Coordinate Pill -->
+<div class="absolute top-3 left-3 bg-inverse-surface/90 backdrop-blur-md px-2.5 py-1 rounded-full text-inverse-on-surface font-numeric-mono text-label-sm shadow-md flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed animate-ping"></span>
+<span id="splitCoordinateDisplay">37.7749° N, 122.4194° W</span>
+</div>
+<div class="absolute bottom-3 right-3 bg-inverse-surface/90 backdrop-blur-md px-2 py-0.5 rounded text-surface-dim font-numeric-mono text-label-sm">
+              Radius: <span class="text-tertiary-fixed font-bold" id="splitRadiusDisplay">250m</span> | ±3.2m GPS
+            </div>
+</div>
+<!-- Selected Location Meta -->
+<div class="flex flex-col gap-2 pt-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-title-md text-title-md text-on-surface" id="splitLocationTitle">Vanguard Global HQ</span>
+<span class="font-numeric-mono text-label-sm px-2 py-0.5 rounded bg-surface-container text-primary font-semibold" id="splitLocationCode">CODE: HQ-01</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Continuous telemetry logging enabled with anti-spoofing beacon verification.</p>
+</div>
+<div class="grid grid-cols-2 gap-space-sm pt-space-xs">
+<div class="p-2.5 rounded-lg bg-surface-container-low flex flex-col">
+<span class="font-label-sm text-label-sm text-outline uppercase">Active Perimeter</span>
+<span class="font-numeric-mono text-label-md text-on-surface font-semibold mt-0.5">Enforced (Pass)</span>
+</div>
+<div class="p-2.5 rounded-lg bg-surface-container-low flex flex-col">
+<span class="font-label-sm text-label-sm text-outline uppercase">Sensor Beacon</span>
+<span class="font-numeric-mono text-label-md text-secondary font-semibold mt-0.5">Dual-Band L1/L5</span>
+</div>
+</div>
+</div>
+<!-- Telemetry Audit Snapshot -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-md flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-semibold">Incident Stream (Last 1 hr)</span>
+<span class="font-numeric-mono text-label-sm text-tertiary font-bold">0 Breaches</span>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between text-body-sm font-body-sm p-2 rounded bg-surface-container-low">
+<span class="text-on-surface">Geofence handshake sync</span>
+<span class="font-numeric-mono text-label-sm text-outline">10:41:04 AM</span>
+</div>
+<div class="flex items-center justify-between text-body-sm font-body-sm p-2 rounded bg-surface-container-low">
+<span class="text-on-surface">Roster check-in verify (x14)</span>
+<span class="font-numeric-mono text-label-sm text-outline">10:39:20 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Interactive Add / Edit Location Modal Overlay (High-Fidelity) -->
+<div class="fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm flex items-center justify-center p-space-md hidden overflow-y-auto" id="locationModalOverlay">
+<div class="relative w-full max-w-4xl bg-surface-container-lowest rounded-2xl shadow-[0_20px_50px_rgba(22,26,51,0.25)] overflow-hidden my-auto animate-in fade-in zoom-in duration-200">
+<!-- Modal Header -->
+<div class="px-space-lg py-space-md bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shadow-md">
+<span class="material-symbols-outlined text-2xl">add_location_alt</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface" id="modalTitle">Add New Office Location</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Configure verified spatial perimeter and GPS coordinates for attendance check-in.</p>
+</div>
+</div>
+<button class="p-2 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container transition-colors" id="closeModalBtn">
+<span class="material-symbols-outlined text-xl">close</span>
+</button>
+</div>
+<!-- Modal Body (Split Form & Interactive GIS Canvas) -->
+<form class="p-space-lg grid grid-cols-1 lg:grid-cols-12 gap-space-lg" id="locationForm" onsubmit="event.preventDefault();">
+<!-- Left: Configuration Form -->
+<div class="lg:col-span-7 flex flex-col gap-space-md">
+<!-- Location Name -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface flex items-center justify-between">
+<span>Location Name &amp; Facility Title</span>
+<span class="font-label-sm text-label-sm text-outline">Required</span>
+</label>
+<input class="w-full h-10 px-3.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-outline" id="inputLocName" placeholder="e.g. Vanguard Global HQ - Building B" type="text" value="Vanguard Global HQ - Building B"/>
+</div>
+<!-- Street Address -->
+<div class="flex flex-col gap-1.5">
+<label class="font-label-md text-label-md text-on-surface flex items-center justify-between">
+<span>Physical Address</span>
+<span class="font-label-sm text-label-sm text-outline">Reverse-Geocoded</span>
+</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">pin_drop</span>
+<input class="w-full h-10 pl-10 pr-3.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-outline" id="inputAddress" placeholder="e.g. 742 Evergreen Blvd, Metro District, CA 90210" type="text" value="742 Evergreen Blvd, Metro District, CA 90210"/>
+</div>
+</div>
+<!-- Coordinates Latitude & Longitude -->
+<div class="flex flex-col gap-1.5">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-on-surface">Perimeter Epicenter Coordinates</label>
+<span class="font-numeric-mono text-label-sm text-primary font-medium">GPS Precision ±5.0m</span>
+</div>
+<div class="grid grid-cols-2 gap-space-sm">
+<div>
+<span class="font-label-sm text-label-sm text-outline">Latitude</span>
+<input class="w-full h-10 px-3 rounded-lg bg-surface-container-low font-numeric-mono text-numeric-mono text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 mt-1" id="inputLat" type="text" value="37.7749° N [Sample]"/>
+</div>
+<div>
+<span class="font-label-sm text-label-sm text-outline">Longitude</span>
+<input class="w-full h-10 px-3 rounded-lg bg-surface-container-low font-numeric-mono text-numeric-mono text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 mt-1" id="inputLng" type="text" value="122.4194° W [Sample]"/>
+</div>
+</div>
+<!-- Coordinate Demonstration Disclaimer Badge -->
+<div class="p-2 rounded-lg bg-surface-container-high/60 flex items-start gap-2 mt-1">
+<span class="material-symbols-outlined text-base text-primary shrink-0 mt-0.5">info</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant leading-tight">Simulated demonstration coordinates. Not real GPS readings. Perimeter calculations use high-precision WGS84 ellipsoid projection.</span>
+</div>
+</div>
+<!-- Geofence Radius Slider & Presets -->
+<div class="flex flex-col gap-2 pt-space-xs">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-label-md text-on-surface">Geofence Radius (Meters)</label>
+<div class="flex items-center gap-1 font-numeric-mono font-bold text-label-md text-primary bg-primary/10 px-2 py-0.5 rounded">
+<span id="radiusValDisplay">250</span> meters
+              </div>
+</div>
+<input class="w-full accent-primary cursor-pointer" id="radiusRange" max="600" min="50" step="25" type="range" value="250"/>
+<!-- Presets buttons -->
+<div class="flex items-center gap-2">
+<button class="px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high font-numeric-mono text-label-sm text-on-surface-variant" onclick="setRadiusPreset(100)" type="button">100m (Compact)</button>
+<button class="px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high font-numeric-mono text-label-sm text-on-surface-variant" onclick="setRadiusPreset(250)" type="button">250m (Standard)</button>
+<button class="px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high font-numeric-mono text-label-sm text-on-surface-variant" onclick="setRadiusPreset(500)" type="button">500m (Campus / Depot)</button>
+</div>
+</div>
+<!-- Active Status Switch -->
+<div class="pt-space-xs flex items-center justify-between p-3 rounded-xl bg-surface-container-low">
+<div class="flex flex-col">
+<span class="font-label-md text-label-md text-on-surface">Active &amp; Enforce Geofence Verification</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Mobile app employees must verify presence within radius for shift clock-in.</span>
+</div>
+<label class="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+<input checked="" class="sr-only peer" id="activeToggleCheckbox" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-surface after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+</label>
+</div>
+</div>
+<!-- Right: Real-time GIS Simulation Map Preview Box -->
+<div class="lg:col-span-5 flex flex-col gap-space-sm">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface">Live Boundary Simulation</span>
+<span class="font-numeric-mono text-label-sm text-outline">Real-Time CAD</span>
+</div>
+<div class="relative w-full h-[340px] rounded-xl bg-inverse-surface overflow-hidden shadow-inner flex flex-col items-center justify-center p-4">
+<!-- Dark GIS Satellite Grid Background Texture -->
+<div class="absolute inset-0 opacity-25 bg-[radial-gradient(#3a4efb_1px,transparent_1px)] [background-size:16px_16px]"></div>
+<!-- Axis lines -->
+<div class="absolute inset-x-0 top-1/2 h-px bg-surface-dim/20 pointer-events-none"></div>
+<div class="absolute inset-y-0 left-1/2 w-px bg-surface-dim/20 pointer-events-none"></div>
+<!-- Concentric Dynamic Radius Rings -->
+<div class="w-48 h-48 rounded-full border-2 border-dashed border-secondary-container bg-primary-container/20 flex items-center justify-center transition-all duration-300 relative" id="modalRadiusCircle">
+<div class="absolute inset-0 rounded-full bg-secondary/10 animate-ping opacity-30"></div>
+<!-- Center Building Pin -->
+<div class="w-12 h-12 rounded-full bg-inverse-surface border-2 border-tertiary-fixed shadow-[0_0_20px_rgba(212,240,41,0.7)] flex items-center justify-center z-10">
+<span class="material-symbols-outlined text-tertiary-fixed text-xl">domain</span>
+</div>
+</div>
+<!-- Coordinate Marker Badge Overlay -->
+<div class="absolute top-3 left-3 bg-inverse-surface/90 backdrop-blur-md px-2.5 py-1 rounded-md text-inverse-on-surface font-numeric-mono text-label-sm shadow flex items-center gap-1.5">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed"></span>
+<span id="modalCoordLabel">Lat: 37.7749 N, Lng: 122.4194 W (Demo)</span>
+</div>
+<!-- Compass Widget -->
+<div class="absolute top-3 right-3 w-8 h-8 rounded-full bg-inverse-surface/90 backdrop-blur-md flex items-center justify-center text-tertiary-fixed font-numeric-mono text-label-sm font-bold shadow">
+              N
+            </div>
+<!-- GIS Legend Box -->
+<div class="absolute bottom-3 inset-x-3 bg-inverse-surface/90 backdrop-blur-md px-3 py-2 rounded-lg text-inverse-on-surface flex items-center justify-between text-label-sm font-numeric-mono">
+<div class="flex items-center gap-2">
+<span class="text-tertiary-fixed font-bold">Radius:</span>
+<span class="text-on-primary" id="modalLegendRadius">250m</span>
+</div>
+<div class="text-surface-dim">
+                GPS Accuracy Threshold: <span class="text-on-primary font-semibold">±5.0m</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 px-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm text-outline">pan_tool</span>
+<span class="font-body-sm text-body-sm">Drag or adjust slider to recalibrate strict check-in threshold.</span>
+</div>
+</div>
+</form>
+<!-- Modal Footer -->
+<div class="px-space-lg py-space-md bg-surface-container-low flex items-center justify-end gap-space-sm">
+<button class="px-space-md py-2.5 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container font-label-md text-label-md transition-colors" id="cancelModalBtn" type="button">
+          Cancel
+        </button>
+<button class="flex items-center gap-2 px-space-lg py-2.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md font-semibold hover:opacity-95 shadow-[0_4px_14px_rgba(58,78,251,0.35)] transition-all" id="saveLocationBtn" type="button">
+<span class="material-symbols-outlined text-lg leading-none">save</span>
+<span>Save Location</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Realtime Toast Notification Banner -->
+<div class="fixed bottom-6 right-6 z-50 bg-inverse-surface text-inverse-on-surface px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 transition-transform translate-y-24 duration-300" id="toastNotification">
+<span class="material-symbols-outlined text-tertiary-fixed text-xl">check_circle</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-semibold" id="toastTitle">Perimeter Synced</span>
+<span class="font-body-sm text-body-sm text-surface-dim" id="toastDesc">All 8 geofences synchronized with Edge Gateways.</span>
+</div>
+</div>
+</div>
+<script>
+  // DOM References
+  const openModalBtn = document.getElementById('openModalBtn');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const cancelModalBtn = document.getElementById('cancelModalBtn');
+  const locationModalOverlay = document.getElementById('locationModalOverlay');
+  const saveLocationBtn = document.getElementById('saveLocationBtn');
+
+  const bulkSyncBtn = document.getElementById('bulkSyncBtn');
+  const toastNotification = document.getElementById('toastNotification');
+  const toastTitle = document.getElementById('toastTitle');
+  const toastDesc = document.getElementById('toastDesc');
+
+  const radiusRange = document.getElementById('radiusRange');
+  const radiusValDisplay = document.getElementById('radiusValDisplay');
+  const modalRadiusCircle = document.getElementById('modalRadiusCircle');
+  const modalLegendRadius = document.getElementById('modalLegendRadius');
+
+  const viewTableBtn = document.getElementById('viewTableBtn');
+  const viewSplitBtn = document.getElementById('viewSplitBtn');
+  const splitMapPane = document.getElementById('splitMapPane');
+  const closeSplitBtn = document.getElementById('closeSplitBtn');
+  const tableContainerCol = document.getElementById('tableContainerCol');
+
+  const tabNormalState = document.getElementById('tabNormalState');
+  const tabEmptyState = document.getElementById('tabEmptyState');
+  const locationsTableBody = document.getElementById('locationsTableBody');
+  const simulatedEmptyBlock = document.getElementById('simulatedEmptyBlock');
+
+  const searchInput = document.getElementById('searchInput');
+  const clearSearchBtn = document.getElementById('clearSearchBtn');
+  const statusFilter = document.getElementById('statusFilter');
+  const radiusFilter = document.getElementById('radiusFilter');
+  const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+
+  // Trigger Toast Notification
+  function showToast(title, desc) {
+    toastTitle.textContent = title;
+    toastDesc.textContent = desc;
+    toastNotification.classList.remove('translate-y-24');
+    setTimeout(() => {
+      toastNotification.classList.add('translate-y-24');
+    }, 3800);
+  }
+
+  // Modal Open / Close Handlers
+  openModalBtn.addEventListener('click', () => {
+    document.getElementById('modalTitle').textContent = 'Add New Office Location';
+    locationModalOverlay.classList.remove('hidden');
+  });
+
+  const closeModal = () => locationModalOverlay.classList.add('hidden');
+  closeModalBtn.addEventListener('click', closeModal);
+  cancelModalBtn.addEventListener('click', closeModal);
+
+  // Radius Slider Control
+  function updateRadius(val) {
+    radiusValDisplay.textContent = val;
+    modalLegendRadius.textContent = val + 'm';
+    
+    // Scale visual circle in GIS box between 90px and 240px
+    const scaledPx = Math.round(70 + (val / 600) * 170);
+    modalRadiusCircle.style.width = `${scaledPx}px`;
+    modalRadiusCircle.style.height = `${scaledPx}px`;
+  }
+
+  radiusRange.addEventListener('input', (e) => {
+    updateRadius(e.target.value);
+  });
+
+  window.setRadiusPreset = function(presetVal) {
+    radiusRange.value = presetVal;
+    updateRadius(presetVal);
+  };
+
+  // Bulk Sync Simulation
+  bulkSyncBtn.addEventListener('click', () => {
+    bulkSyncBtn.disabled = true;
+    bulkSyncBtn.classList.add('opacity-70');
+    showToast('Syncing Geofences...', 'Dispatching payload to 6 active Edge nodes.');
+    setTimeout(() => {
+      bulkSyncBtn.disabled = false;
+      bulkSyncBtn.classList.remove('opacity-70');
+      showToast('Sync Complete', '8 of 8 Geofence perimeters confirmed by telemetry engine.');
+    }, 1200);
+  });
+
+  // Save Modal
+  saveLocationBtn.addEventListener('click', () => {
+    const locName = document.getElementById('inputLocName').value || 'New Location';
+    closeModal();
+    showToast('Location Configured', `${locName} saved and armed for mobile attendance verification.`);
+  });
+
+  // Table vs Split View Toggles
+  function setSplitView(active) {
+    if (active) {
+      splitMapPane.classList.remove('hidden');
+      splitMapPane.classList.add('flex');
+      tableContainerCol.classList.remove('col-span-12');
+      tableContainerCol.classList.add('col-span-12', 'xl:col-span-8');
+      viewSplitBtn.classList.add('bg-surface-container-lowest', 'text-primary', 'shadow-xs');
+      viewSplitBtn.classList.remove('text-on-surface-variant');
+      viewTableBtn.classList.remove('bg-surface-container-lowest', 'text-primary', 'shadow-xs');
+      viewTableBtn.classList.add('text-on-surface-variant');
+    } else {
+      splitMapPane.classList.add('hidden');
+      splitMapPane.classList.remove('flex');
+      tableContainerCol.classList.remove('xl:col-span-8');
+      tableContainerCol.classList.add('col-span-12');
+      viewTableBtn.classList.add('bg-surface-container-lowest', 'text-primary', 'shadow-xs');
+      viewTableBtn.classList.remove('text-on-surface-variant');
+      viewSplitBtn.classList.remove('bg-surface-container-lowest', 'text-primary', 'shadow-xs');
+      viewSplitBtn.classList.add('text-on-surface-variant');
+    }
+  }
+
+  viewSplitBtn.addEventListener('click', () => setSplitView(true));
+  viewTableBtn.addEventListener('click', () => setSplitView(false));
+  closeSplitBtn.addEventListener('click', () => setSplitView(false));
+
+  // Selection of Location Row in Split Mode
+  window.selectLocationRow = function(code, name, lat, lng, radius) {
+    setSplitView(true);
+    document.getElementById('splitLocationTitle').textContent = name;
+    document.getElementById('splitLocationCode').textContent = `CODE: ${code}`;
+    document.getElementById('splitCoordinateDisplay').textContent = `${lat}, ${lng}`;
+    document.getElementById('splitRadiusDisplay').textContent = radius;
+  };
+
+  // Wire up Edit buttons on rows
+  document.querySelectorAll('.edit-row-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const siteCode = btn.getAttribute('data-site');
+      document.getElementById('modalTitle').textContent = `Edit Geofence perimeter [${siteCode}]`;
+      locationModalOverlay.classList.remove('hidden');
+    });
+  });
+
+  // Empty State Toggle Demo (Required Edge-State Demonstration)
+  tabEmptyState.addEventListener('click', () => {
+    locationsTableBody.classList.add('hidden');
+    simulatedEmptyBlock.classList.remove('hidden');
+    simulatedEmptyBlock.classList.add('flex');
+
+    tabEmptyState.classList.add('bg-surface-container-lowest', 'text-primary', 'font-semibold', 'shadow-xs');
+    tabEmptyState.classList.remove('text-on-surface-variant');
+    tabNormalState.classList.remove('bg-surface-container-lowest', 'text-primary', 'font-semibold', 'shadow-xs');
+    tabNormalState.classList.add('text-on-surface-variant');
+  });
+
+  tabNormalState.addEventListener('click', () => {
+    locationsTableBody.classList.remove('hidden');
+    simulatedEmptyBlock.classList.add('hidden');
+    simulatedEmptyBlock.classList.remove('flex');
+
+    tabNormalState.classList.add('bg-surface-container-lowest', 'text-primary', 'font-semibold', 'shadow-xs');
+    tabNormalState.classList.remove('text-on-surface-variant');
+    tabEmptyState.classList.remove('bg-surface-container-lowest', 'text-primary', 'font-semibold', 'shadow-xs');
+    tabEmptyState.classList.add('text-on-surface-variant');
+  });
+
+  // Search input typing & clear button
+  searchInput.addEventListener('input', (e) => {
+    if (e.target.value.trim().length > 0) {
+      clearSearchBtn.classList.remove('hidden');
+    } else {
+      clearSearchBtn.classList.add('hidden');
+    }
+  });
+
+  clearSearchBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    clearSearchBtn.classList.add('hidden');
+  });
+
+  resetFiltersBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    clearSearchBtn.classList.add('hidden');
+    statusFilter.value = 'all';
+    radiusFilter.value = 'all';
+    tabNormalState.click();
+    showToast('Filters Reset', 'Displaying all 8 office geofence locations.');
+  });
+</script></main></div></body></html>

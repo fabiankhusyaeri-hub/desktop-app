@@ -110,11 +110,6 @@ const Sidebar: React.FC = () => {
               to="/settings"
               className="sidebar-user-action-btn"
               title="Settings"
-              onClick={(e) => {
-                // Settings is out of scope for this pass — do not navigate away.
-                e.preventDefault()
-                showToast('Settings module is not enabled in this build')
-              }}
             >
               <span className="material-symbols-outlined icon-sm">settings</span>
             </NavLink>
