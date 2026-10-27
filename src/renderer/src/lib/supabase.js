@@ -1,13 +1,15 @@
 ﻿import { createClient } from '@supabase/supabase-js';
 
 // Vite exposes env vars via import.meta.env, not process.env.
-const supabaseUrl =
-  import.meta.env?.VITE_SUPABASE_URL ?? 'https://mjjilkamjnjzlmhzdjgj.supabase.co';
-const supabaseAnonKey =
-  import.meta.env?.VITE_SUPABASE_ANON_KEY ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhamFzZSIsInJlZiI6Im1qamlsa2Ftam5qemxtaHpkamdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NTExNDAsImV4cCI6MjEwNzA5NzE0MH0.2-qn0K_ecwXhCZuMj20zBp6xnpFd1ANY_vtS0ubea24';
+// Values come from `.env` at the project root (see `.env.example` for the
+// variable names); credentials are intentionally never hardcoded in source.
+const supabaseUrl = (import.meta.env?.VITE_SUPABASE_URL ?? '').trim();
+const supabaseAnonKey = (import.meta.env?.VITE_SUPABASE_ANON_KEY ?? '').trim();
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(
+  supabaseUrl || 'https://invalid.supabase.co',
+  supabaseAnonKey || 'invalid-publishable-key'
+);
 
 /** True when both Supabase credentials are configured. */
 export const isSupabaseConfigured = function () {

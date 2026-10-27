@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ATTENDANCE_POLL_MS, fetchAttendanceSnapshot } from '../services/attendanceService'
 import type { AttendanceEntry, AttendanceSite, AttendanceSnapshot, DateScope } from '../types/attendance'
 
-export const FILTER_ALL_DEPARTMENTS = 'All Departments (6 Total)'
+export const FILTER_ALL_DEPARTMENTS = 'All Departments'
 export const FILTER_ALL_STATUSES = 'All Statuses (Present, Late, Absent, Leave)'
 export const FILTER_ALL_VERIFICATION = 'All Verification Protocols'
 

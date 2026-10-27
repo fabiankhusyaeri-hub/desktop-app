@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import './Attendance.css'
 import {
+  FILTER_ALL_DEPARTMENTS,
   useAttendanceData
 } from '../hooks/useAttendanceData'
 import { formatTimestamp } from '../utils/datetime'
@@ -32,6 +33,36 @@ const Attendance: React.FC = () => {
   const verifFilter = filters.verification
 
   const setDateScope = (scope: DateScope): void => setFilter('dateScope', scope)
+
+  /* Department options derived from the loaded records (no hardcoded list). */
+  const departments = useMemo(() => {
+    const names = new Set<string>()
+    for (const record of snapshot?.records ?? []) {
+      if (record.department && record.department !== '—') names.add(record.department)
+    }
+    return Array.from(names).sort()
+  }, [snapshot])
+
+  /* Client-side pagination for the audit table (page size kept modest). */
+  const PAGE_SIZE = 8
+  const [page, setPage] = useState(1)
+  useEffect(() => {
+    setPage(1)
+  }, [filters])
+  const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const pageRecords = filteredRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const rangeStart = filteredRecords.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1
+  const rangeEnd = (safePage - 1) * PAGE_SIZE + pageRecords.length
+  /* At most 5 page buttons, sliding around the current page. */
+  const pageWindow = useMemo(() => {
+    const maxButtons = 5
+    const from = Math.max(1, Math.min(safePage - 2, pageCount - maxButtons + 1))
+    const to = Math.min(pageCount, from + maxButtons - 1)
+    const nums: number[] = []
+    for (let n = from; n <= to; n += 1) nums.push(n)
+    return nums
+  }, [safePage, pageCount])
 
   /* Geofence projection: the drawer pin follows the real punch coordinates. */
   const drawerSite: AttendanceSite | null =
@@ -326,12 +357,14 @@ const Attendance: React.FC = () => {
                 value={deptFilter}
                 onChange={(e) => setFilter('department', e.target.value)}
               >
-                <option>All Departments (6 Total)</option>
-                <option>Field Engineering</option>
-                <option>Site Logistics</option>
-                <option>Facility Safety</option>
-                <option>Tech QA</option>
-                <option>Executive Operations</option>
+                <option value={FILTER_ALL_DEPARTMENTS}>
+                  All Departments{departments.length > 0 ? ` (${departments.length} Total)` : ''}
+                </option>
+                {departments.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
               </select>
               <span className="material-symbols-outlined icon-sm att-field-arrow">expand_more</span>
             </div>
@@ -465,7 +498,7 @@ const Attendance: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((r) => {
+              {pageRecords.map((r) => {
                 const isBreach = r.statusType === 'breach'
 
                 return (
@@ -664,11 +697,11 @@ const Attendance: React.FC = () => {
         <div className="att-table-footer">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 'var(--fs-body-sm)', color: 'var(--color-on-surface-variant)' }}>
             <span>
-              Displaying <strong>1 - {filteredRecords.length}</strong> of <strong>{meta?.totalEmployees ?? 0}</strong> entries
+              Displaying <strong>{rangeStart} - {rangeEnd}</strong> of <strong>{filteredRecords.length}</strong> entries
             </span>
             <span style={{ color: 'var(--color-outline)' }}>|</span>
             <span>
-              Cumulative shift coverage: <strong>94.2%</strong>
+              Cumulative shift coverage: <strong>{meta?.attendanceRatePercent ?? 0}%</strong>
             </span>
           </div>
 
@@ -676,25 +709,35 @@ const Attendance: React.FC = () => {
             <button
               className="emp-btn-page"
               type="button"
-              disabled
-              style={{ opacity: 0.4 }}
+              disabled={safePage <= 1}
+              onClick={() => setPage(safePage - 1)}
+              style={{ opacity: safePage <= 1 ? 0.4 : 1 }}
             >
               <span className="material-symbols-outlined icon-sm">chevron_left</span>
             </button>
-            <button className="emp-btn-page active" type="button">
-              1
-            </button>
-            <button className="emp-btn-page" type="button">
-              2
-            </button>
-            <button className="emp-btn-page" type="button">
-              3
-            </button>
-            <span style={{ padding: '0 4px', color: 'var(--color-outline)' }}>...</span>
-            <button className="emp-btn-page" type="button">
-              16
-            </button>
-            <button className="emp-btn-page" type="button">
+            {pageWindow[0] > 1 && (
+              <span style={{ padding: '0 4px', color: 'var(--color-outline)' }}>...</span>
+            )}
+            {pageWindow.map((n) => (
+              <button
+                key={n}
+                className={`emp-btn-page${n === safePage ? ' active' : ''}`}
+                type="button"
+                onClick={() => setPage(n)}
+              >
+                {n}
+              </button>
+            ))}
+            {pageWindow[pageWindow.length - 1] < pageCount && (
+              <span style={{ padding: '0 4px', color: 'var(--color-outline)' }}>...</span>
+            )}
+            <button
+              className="emp-btn-page"
+              type="button"
+              disabled={safePage >= pageCount}
+              onClick={() => setPage(safePage + 1)}
+              style={{ opacity: safePage >= pageCount ? 0.4 : 1 }}
+            >
               <span className="material-symbols-outlined icon-sm">chevron_right</span>
             </button>
           </div>

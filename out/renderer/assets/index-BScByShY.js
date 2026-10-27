@@ -29510,11 +29510,14 @@ function shouldShowDeprecationWarning() {
   return parseInt(versionMatch[1], 10) <= 20;
 }
 if (shouldShowDeprecationWarning()) console.warn("⚠️  Node.js 20 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 22 or later. For more information, visit: https://github.com/orgs/supabase/discussions/45715");
-const supabaseUrl = "https://mjjilkamjnjzlmhzdjgj.supabase.co";
-const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhamFzZSIsInJlZiI6Im1qamlsa2Ftam5qemxtaHpkamdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE0NTExNDAsImV4cCI6MjEwNzA5NzE0MH0.2-qn0K_ecwXhCZuMj20zBp6xnpFd1ANY_vtS0ubea24";
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseUrl = "https://teuathobnzuwzwolpvon.supabase.co".trim();
+const supabaseAnonKey = "sb_publishable_NzSLD-wVP0AFY2-Psu6aTg_zKt3bih_".trim();
+const supabase = createClient(
+  supabaseUrl || "https://invalid.supabase.co",
+  supabaseAnonKey || "invalid-publishable-key"
+);
 const isSupabaseConfigured = function() {
-  return Boolean(supabaseAnonKey);
+  return Boolean(supabaseUrl && supabaseAnonKey);
 };
 const supabaseService = {
   // 1. Fetch employees for the directory & sidebar.
@@ -29564,14 +29567,37 @@ const supabaseService = {
     return data;
   },
   // 4. Fetch attendance log for the attendance page.
+  //
+  // Fetched as two plain queries (attendance + employees) and merged locally
+  // instead of an embedded join: the employees table schema varies between
+  // projects (optional columns like emp_id/avatar/geofence may not exist) and
+  // a single missing column would fail the whole PostgREST request. Missing
+  // employee fields degrade to the fallbacks in the row mappers.
   async getAttendance() {
     if (!isSupabaseConfigured()) return null;
-    const { data, error } = await supabase.from("attendance").select("*, employees ( name, emp_id, email, department, role, geofence, avatar, distance_meters )").order("clock_in", { ascending: false });
+    const [{ data, error }, employeesRes] = await Promise.all([
+      supabase.from("attendance").select("*").order("clock_in", { ascending: false }),
+      supabase.from("employees").select("*")
+    ]);
     if (error) {
       console.error("[supabase] getAttendance", error);
       return null;
     }
-    return data;
+    if (employeesRes.error) {
+      console.error("[supabase] getAttendance (employees)", employeesRes.error);
+    }
+    const employeesById = new Map((employeesRes.data ?? []).map((emp) => [emp.id, emp]));
+    return (data ?? []).map((row) => {
+      const durationMinutes = row.duration_minutes ?? (row.clock_in && row.clock_out ? Math.max(
+        0,
+        Math.round((new Date(row.clock_out) - new Date(row.clock_in)) / 6e4)
+      ) : 0);
+      return {
+        ...row,
+        duration_minutes: durationMinutes,
+        employees: employeesById.get(row.employee_id) ?? null
+      };
+    });
   },
   // 5. Realtime subscription for live GPS updates.
   subscribeToLiveGPS(onUpdate) {
@@ -33856,7 +33882,7 @@ const fetchAttendanceSnapshot = async () => {
   }
   return { meta: { generatedAt: (/* @__PURE__ */ new Date()).toISOString(), expectedShiftStart: "08:00", gracePeriodMinutes: 15, totalEmployees: 0, organizationCounts: { present: 0, late: 0, absent: 0, leave: 0 }, punctualityScore: 0, punctualityTrendPercent: 0, attendanceRatePercent: 0, attendanceRateTrendPercent: 0, avgCheckInLabel: "—", workHoursLogged: 0, workHoursExpected: 0 }, sites: [], records: [] };
 };
-const FILTER_ALL_DEPARTMENTS = "All Departments (6 Total)";
+const FILTER_ALL_DEPARTMENTS = "All Departments";
 const FILTER_ALL_STATUSES = "All Statuses (Present, Late, Absent, Leave)";
 const FILTER_ALL_VERIFICATION = "All Verification Protocols";
 const DEFAULT_FILTERS = {
@@ -33983,6 +34009,31 @@ const Attendance = () => {
   const statusFilter = filters.status;
   const verifFilter = filters.verification;
   const setDateScope = (scope) => setFilter("dateScope", scope);
+  const departments = reactExports.useMemo(() => {
+    const names = /* @__PURE__ */ new Set();
+    for (const record of snapshot?.records ?? []) {
+      if (record.department && record.department !== "—") names.add(record.department);
+    }
+    return Array.from(names).sort();
+  }, [snapshot]);
+  const PAGE_SIZE = 8;
+  const [page, setPage] = reactExports.useState(1);
+  reactExports.useEffect(() => {
+    setPage(1);
+  }, [filters]);
+  const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageRecords = filteredRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const rangeStart = filteredRecords.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = (safePage - 1) * PAGE_SIZE + pageRecords.length;
+  const pageWindow = reactExports.useMemo(() => {
+    const maxButtons = 5;
+    const from = Math.max(1, Math.min(safePage - 2, pageCount - maxButtons + 1));
+    const to = Math.min(pageCount, from + maxButtons - 1);
+    const nums = [];
+    for (let n2 = from; n2 <= to; n2 += 1) nums.push(n2);
+    return nums;
+  }, [safePage, pageCount]);
   const drawerSite = inspectDrawerRecord?.siteId != null ? sites.find((s) => s.id === inspectDrawerRecord.siteId) ?? null : null;
   const drawerPin = inspectDrawerRecord && drawerSite ? projectToMapFrame(
     {
@@ -34249,12 +34300,11 @@ const Attendance = () => {
                 value: deptFilter,
                 onChange: (e) => setFilter("department", e.target.value),
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "All Departments (6 Total)" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Field Engineering" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Site Logistics" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Facility Safety" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Tech QA" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Executive Operations" })
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("option", { value: FILTER_ALL_DEPARTMENTS, children: [
+                    "All Departments",
+                    departments.length > 0 ? ` (${departments.length} Total)` : ""
+                  ] }),
+                  departments.map((name) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: name, children: name }, name))
                 ]
               }
             ),
@@ -34401,7 +34451,7 @@ const Attendance = () => {
           /* @__PURE__ */ jsxRuntimeExports.jsx("th", { children: "Verification" }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("th", { style: { textAlign: "right" }, children: "Actions" })
         ] }) }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("tbody", { children: filteredRecords.map((r2) => {
+        /* @__PURE__ */ jsxRuntimeExports.jsx("tbody", { children: pageRecords.map((r2) => {
           const isBreach = r2.statusType === "breach";
           return /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { className: isBreach ? "row-flagged" : "", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("td", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "att-person-cell", children: [
@@ -34548,17 +34598,21 @@ const Attendance = () => {
           /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
             "Displaying ",
             /* @__PURE__ */ jsxRuntimeExports.jsxs("strong", { children: [
-              "1 - ",
-              filteredRecords.length
+              rangeStart,
+              " - ",
+              rangeEnd
             ] }),
             " of ",
-            /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: meta?.totalEmployees ?? 0 }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: filteredRecords.length }),
             " entries"
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--color-outline)" }, children: "|" }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
             "Cumulative shift coverage: ",
-            /* @__PURE__ */ jsxRuntimeExports.jsx("strong", { children: "94.2%" })
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("strong", { children: [
+              meta?.attendanceRatePercent ?? 0,
+              "%"
+            ] })
           ] })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 4 }, children: [
@@ -34567,17 +34621,35 @@ const Attendance = () => {
             {
               className: "emp-btn-page",
               type: "button",
-              disabled: true,
-              style: { opacity: 0.4 },
+              disabled: safePage <= 1,
+              onClick: () => setPage(safePage - 1),
+              style: { opacity: safePage <= 1 ? 0.4 : 1 },
               children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "chevron_left" })
             }
           ),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "emp-btn-page active", type: "button", children: "1" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "emp-btn-page", type: "button", children: "2" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "emp-btn-page", type: "button", children: "3" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { padding: "0 4px", color: "var(--color-outline)" }, children: "..." }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "emp-btn-page", type: "button", children: "16" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "emp-btn-page", type: "button", children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "chevron_right" }) })
+          pageWindow[0] > 1 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { padding: "0 4px", color: "var(--color-outline)" }, children: "..." }),
+          pageWindow.map((n2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              className: `emp-btn-page${n2 === safePage ? " active" : ""}`,
+              type: "button",
+              onClick: () => setPage(n2),
+              children: n2
+            },
+            n2
+          )),
+          pageWindow[pageWindow.length - 1] < pageCount && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { padding: "0 4px", color: "var(--color-outline)" }, children: "..." }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              className: "emp-btn-page",
+              type: "button",
+              disabled: safePage >= pageCount,
+              onClick: () => setPage(safePage + 1),
+              style: { opacity: safePage >= pageCount ? 0.4 : 1 },
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "chevron_right" })
+            }
+          )
         ] })
       ] })
     ] }),

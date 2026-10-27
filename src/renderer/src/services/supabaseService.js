@@ -65,17 +65,41 @@ export const supabaseService = {
   },
 
   // 4. Fetch attendance log for the attendance page.
+  //
+  // Fetched as two plain queries (attendance + employees) and merged locally
+  // instead of an embedded join: the employees table schema varies between
+  // projects (optional columns like emp_id/avatar/geofence may not exist) and
+  // a single missing column would fail the whole PostgREST request. Missing
+  // employee fields degrade to the fallbacks in the row mappers.
   async getAttendance() {
     if (!isSupabaseConfigured()) return null;
-    const { data, error } = await supabase
-      .from('attendance')
-      .select('*, employees ( name, emp_id, email, department, role, geofence, avatar, distance_meters )')
-      .order('clock_in', { ascending: false });
+    const [{ data, error }, employeesRes] = await Promise.all([
+      supabase.from('attendance').select('*').order('clock_in', { ascending: false }),
+      supabase.from('employees').select('*')
+    ]);
     if (error) {
       console.error('[supabase] getAttendance', error);
       return null;
     }
-    return data;
+    if (employeesRes.error) {
+      console.error('[supabase] getAttendance (employees)', employeesRes.error);
+    }
+    const employeesById = new Map((employeesRes.data ?? []).map((emp) => [emp.id, emp]));
+    return (data ?? []).map((row) => {
+      const durationMinutes =
+        row.duration_minutes ??
+        (row.clock_in && row.clock_out
+          ? Math.max(
+              0,
+              Math.round((new Date(row.clock_out) - new Date(row.clock_in)) / 60000)
+            )
+          : 0);
+      return {
+        ...row,
+        duration_minutes: durationMinutes,
+        employees: employeesById.get(row.employee_id) ?? null
+      };
+    });
   },
 
   // 5. Realtime subscription for live GPS updates.
