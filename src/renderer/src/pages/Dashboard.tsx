@@ -124,7 +124,7 @@ const DashboardContent: React.FC<{
 
   /* ==== Workforce projection for the tactical map ==== */
   const [personnel, setPersonnel] = useState<MapPersonnel[]>([])
-  const [selectedId, setSelectedId] = useState<string>('EMP-8821')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [scope, setScope] = useState<MapScope>('all')
   const [mapLayer, setMapLayer] = useState<'geofence' | 'heatmap' | 'traffic'>('geofence')
   const [panelTab, setPanelTab] = useState<'all' | 'inside' | 'outside'>('all')
@@ -708,7 +708,7 @@ const DashboardContent: React.FC<{
                 background:'var(--color-surface-container)',
                 color:'var(--color-primary)',
                 fontFamily:'var(--font-body)',fontSize:'var(--fs-label-sm)',fontWeight:600
-              }}>87</span>
+              }}>{personnel.length}</span>
             </div>
             <button className="icon-btn" type="button" title="Focus Search" onClick={() => panelSearchRef.current?.focus()}>
               <span className="material-symbols-outlined icon-md">tune</span>
@@ -733,13 +733,13 @@ const DashboardContent: React.FC<{
 
           <div className="emp-panel-tabs">
             <button className={`emp-tab ${panelTab === 'all' ? 'active' : ''}`} type="button" onClick={() => setPanelTab('all')}>
-              All (87)
+              All ({personnel.length})
             </button>
             <button className={`emp-tab ${panelTab === 'inside' ? 'active' : ''}`} type="button" onClick={() => setPanelTab('inside')}>
-              Inside (82)
+              Inside ({mapSummary.inside})
             </button>
             <button className={`emp-tab ${panelTab === 'outside' ? 'active' : ''}`} type="button" onClick={() => setPanelTab('outside')}>
-              Outside (5)
+              Outside ({mapSummary.outside})
             </button>
           </div>
 
@@ -833,7 +833,7 @@ const DashboardContent: React.FC<{
           </div>
 
           <button className="emp-view-all-btn" type="button" onClick={() => navigate('/live-monitoring')}>
-            View All 87 Active Telemetries
+            View All {personnel.length} Active Telemetries
             <span className="material-symbols-outlined icon-md">arrow_forward</span>
           </button>
         </div>
@@ -1074,9 +1074,9 @@ const DashboardContent: React.FC<{
                     value={broadcastAudience}
                     onChange={(e) => setBroadcastAudience(e.target.value as 'all' | 'hq' | 'field')}
                   >
-                    <option value="all">All personnel (87)</option>
-                    <option value="hq">Headquarters only (82)</option>
-                    <option value="field">Field units only (5)</option>
+                    <option value="all">All personnel ({personnel.length})</option>
+                    <option value="hq">Headquarters only ({mapSummary.inside})</option>
+                    <option value="field">Field units only ({mapSummary.outside})</option>
                   </select>
                 </div>
               </div>

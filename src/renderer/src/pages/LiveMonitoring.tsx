@@ -73,10 +73,6 @@ const LiveMonitoring: React.FC = () => {
     })
   }
 
-  /** Lookup helper used by the static map markers. */
-  const byEmpId = (empId: string): TrackedEntity | undefined =>
-    entities.find((entity) => entity.empId === empId)
-
   /** Activity trail: static checkpoints + live geofence breach entries. */
   const trailFor = (entity: TrackedEntity): TimelineStep[] => {
     const breaches: TimelineStep[] = breachLog
@@ -478,79 +474,63 @@ const LiveMonitoring: React.FC = () => {
                 </g>
               )}
 
-              {/* Background In-Bounds Personnel Clusters */}
-              <g transform="translate(435, 340)"><circle r="6" fill="#00629e" opacity="0.9" /><circle r="2" fill="#fff" /></g>
-              <g transform="translate(460, 440)"><circle r="6" fill="#00629e" opacity="0.9" /><circle r="2" fill="#fff" /></g>
-              <g transform="translate(380, 360)"><circle r="6" fill="#00629e" opacity="0.9" /><circle r="2" fill="#fff" /></g>
-              <g transform="translate(515, 320)"><circle r="6" fill="#00629e" opacity="0.9" /><circle r="2" fill="#fff" /></g>
-
               {/* Other personnel nodes — position projected from the live GPS fix */}
-              {byEmpId('EMP-6320') && (
-                <g
-                  transform={`translate(${byEmpId('EMP-6320')?.position.x}, ${byEmpId('EMP-6320')?.position.y})`}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => selectEntity(byEmpId('EMP-6320') as TrackedEntity)}
-                >
-                  <circle r="9" fill="#3a4efb" stroke="#ffffff" strokeWidth="2" />
-                  <circle r="3" fill="#ffffff" />
-                </g>
-              )}
+              {visibleEntities
+                .filter((entity) => entity.statusType === 'inside')
+                .slice(0, 8)
+                .map((entity) => (
+                  <g
+                    key={entity.id}
+                    transform={`translate(${entity.position.x}, ${entity.position.y})`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => selectEntity(entity)}
+                  >
+                    <circle r="9" fill="#3a4efb" stroke="#ffffff" strokeWidth="2" />
+                    <circle r="3" fill="#ffffff" />
+                  </g>
+                ))}
 
-              {byEmpId('EMP-9014') && (
-                <g
-                  transform={`translate(${byEmpId('EMP-9014')?.position.x}, ${byEmpId('EMP-9014')?.position.y})`}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => selectEntity(byEmpId('EMP-9014') as TrackedEntity)}
-                >
-                  <circle r="9" fill="#3a4efb" stroke="#ffffff" strokeWidth="2" />
-                  <circle r="3" fill="#ffffff" />
-                </g>
-              )}
+              {/* Breached personnel markers — one animated marker per breach entity */}
+              {visibleEntities
+                .filter((entity) => entity.statusType === 'breach')
+                .slice(0, 3)
+                .map((entity) => (
+                  <g
+                    key={entity.id}
+                    transform={`translate(${entity.position.x}, ${entity.position.y})`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => selectEntity(entity)}
+                  >
+                    <circle r="18" fill="none" stroke="#ba1a1a" strokeWidth="2" opacity="0.8">
+                      <animate attributeName="r" values="14;24;14" dur="2s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0.9;0.1;0.9" dur="2s" repeatCount="indefinite" />
+                    </circle>
+                    <circle r="13" fill="#ba1a1a" stroke="#ffffff" strokeWidth="2" />
+                    <text x="0" y="4" textAnchor="middle" fill="#ffffff" fontFamily="Plus Jakarta Sans" fontSize="11" fontWeight="800">!</text>
 
-              {byEmpId('EMP-5519') && (
-                <g
-                  transform={`translate(${byEmpId('EMP-5519')?.position.x}, ${byEmpId('EMP-5519')?.position.y})`}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => selectEntity(byEmpId('EMP-5519') as TrackedEntity)}
-                >
-                  <circle r="9" fill="#3a4efb" stroke="#ffffff" strokeWidth="2" />
-                  <circle r="3" fill="#ffffff" />
-                </g>
-              )}
+                    <rect x="18" y="-16" width="150" height="26" rx="4" fill="#2b2f49" stroke="#ba1a1a" strokeWidth="1.5" />
+                    <text x="24" y="-3" fill="#ffdad6" fontFamily="Inter" fontSize="10" fontWeight="700">{entity.name} ({entity.distanceLabel} Out)</text>
+                    <text x="24" y="6" fill="#ffffff" fontFamily="Inter" fontSize="8" fontWeight="500">Outside Permitted Zone</text>
+                  </g>
+                ))}
 
-              {/* Breached Employee Marker: Dimas Pratama (Outside Geofence) */}
-              {byEmpId('EMP-7742') && (
-                <g
-                  transform={`translate(${byEmpId('EMP-7742')?.position.x}, ${byEmpId('EMP-7742')?.position.y})`}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => selectEntity(byEmpId('EMP-7742') as TrackedEntity)}
-                >
-                  <circle r="18" fill="none" stroke="#ba1a1a" strokeWidth="2" opacity="0.8">
-                    <animate attributeName="r" values="14;24;14" dur="2s" repeatCount="indefinite" />
-                    <animate attributeName="opacity" values="0.9;0.1;0.9" dur="2s" repeatCount="indefinite" />
-                  </circle>
-                  <circle r="13" fill="#ba1a1a" stroke="#ffffff" strokeWidth="2" />
-                  <text x="0" y="4" textAnchor="middle" fill="#ffffff" fontFamily="Plus Jakarta Sans" fontSize="11" fontWeight="800">!</text>
-
-                  <rect x="18" y="-16" width="130" height="26" rx="4" fill="#2b2f49" stroke="#ba1a1a" strokeWidth="1.5" />
-                  <text x="24" y="-3" fill="#ffdad6" fontFamily="Inter" fontSize="10" fontWeight="700">Dimas P. ({byEmpId('EMP-7742')?.distanceLabel} Out)</text>
-                  <text x="24" y="6" fill="#ffffff" fontFamily="Inter" fontSize="8" fontWeight="500">Outside Permitted Zone</text>
-                </g>
-              )}
-
-              {/* Field Agent: Fajar Nugraha (Client Site) */}
-              {byEmpId('EMP-4389') && (
-                <g
-                  transform={`translate(${byEmpId('EMP-4389')?.position.x}, ${byEmpId('EMP-4389')?.position.y})`}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => selectEntity(byEmpId('EMP-4389') as TrackedEntity)}
-                >
-                  <circle r="12" fill="#00629e" stroke="#cfe5ff" strokeWidth="2" />
-                  <circle r="4" fill="#d4f029" />
-                  <rect x="-60" y="16" width="120" height="20" rx="4" fill="#161a33" stroke="#3ca9ff" strokeWidth="1" opacity="0.9" />
-                  <text x="0" y="30" textAnchor="middle" fill="#ffffff" fontFamily="Inter" fontSize="9" fontWeight="600">Fajar N. • Client Visit ({byEmpId('EMP-4389')?.distanceLabel})</text>
-                </g>
-              )}
+              {/* Field unit markers — one labelled node per on-field entity */}
+              {visibleEntities
+                .filter((entity) => entity.statusType === 'field')
+                .slice(0, 3)
+                .map((entity) => (
+                  <g
+                    key={entity.id}
+                    transform={`translate(${entity.position.x}, ${entity.position.y})`}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => selectEntity(entity)}
+                  >
+                    <circle r="12" fill="#00629e" stroke="#cfe5ff" strokeWidth="2" />
+                    <circle r="4" fill="#d4f029" />
+                    <rect x="-60" y="16" width="120" height="20" rx="4" fill="#161a33" stroke="#3ca9ff" strokeWidth="1" opacity="0.9" />
+                    <text x="0" y="30" textAnchor="middle" fill="#ffffff" fontFamily="Inter" fontSize="9" fontWeight="600">{entity.name} • On Field ({entity.distanceLabel})</text>
+                  </g>
+                ))}
 
               {/* DYNAMIC SELECTED TARGET PIN — position projected from the live GPS fix */}
               {selectedPersonnel && (

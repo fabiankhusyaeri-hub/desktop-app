@@ -4735,39 +4735,108 @@ body {
 .icon-md { font-size: 20px; line-height: 1; }
 .icon-lg { font-size: 24px; line-height: 1; }
 
-/* Table styles */
-table {
-  border-collapse: collapse;
-  width: 100%;
-}
+/* Table styles (in @layer base so Tailwind utilities can override them in Stitch views) */
+@layer base {
+  table {
+    border-collapse: collapse;
+    width: 100%;
+  }
 
-th {
-  font-family: var(--font-body);
-  font-size: var(--fs-label-sm);
-  line-height: var(--lh-label-sm);
-  font-weight: var(--fw-label-sm);
-  color: var(--color-on-surface-variant);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 8px 12px;
-  text-align: left;
-  border-bottom: 1px solid var(--color-outline-variant);
-  white-space: nowrap;
-}
+  th {
+    font-family: var(--font-body);
+    font-size: var(--fs-label-sm);
+    line-height: var(--lh-label-sm);
+    font-weight: var(--fw-label-sm);
+    color: var(--color-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--color-outline-variant);
+    white-space: nowrap;
+  }
 
-td {
-  font-family: var(--font-body);
-  font-size: var(--fs-body-sm);
-  color: var(--color-on-surface);
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--color-surface-container);
-  vertical-align: middle;
-}
+  td {
+    font-family: var(--font-body);
+    font-size: var(--fs-body-sm);
+    color: var(--color-on-surface);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-surface-container);
+    vertical-align: middle;
+  }
 
-tr:hover td {
-  background: var(--color-surface-container-low);
+  tr:hover td {
+    background: var(--color-surface-container-low);
+  }
 }
 
 .font-tabular {
   font-feature-settings: "tnum" 1, "cv05" 1;
+}
+
+/* ============================================================
+   Stitch-injected views (Location / Reports / Settings).
+   Mimics Tailwind preflight, scoped to .stitch-view only, inside
+   @layer base so unlayered Tailwind utility classes always win.
+   Does NOT affect the app's own pages.
+   ============================================================ */
+@layer base {
+  .stitch-view > main {
+    width: 100%;
+  }
+  .stitch-view h1,
+  .stitch-view h2,
+  .stitch-view h3,
+  .stitch-view h4,
+  .stitch-view h5,
+  .stitch-view h6,
+  .stitch-view p,
+  .stitch-view figure,
+  .stitch-view blockquote,
+  .stitch-view pre,
+  .stitch-view fieldset {
+    margin: 0;
+  }
+  .stitch-view h1,
+  .stitch-view h2,
+  .stitch-view h3,
+  .stitch-view h4,
+  .stitch-view h5,
+  .stitch-view h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  .stitch-view ul,
+  .stitch-view ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stitch-view a {
+    text-decoration: none;
+  }
+  .stitch-view button,
+  .stitch-view input,
+  .stitch-view optgroup,
+  .stitch-view select,
+  .stitch-view textarea {
+    font-family: inherit;
+    font-size: 100%;
+    line-height: 1.15;
+    color: inherit;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+    background-image: none;
+  }
+  .stitch-view textarea {
+    resize: vertical;
+  }
+  .stitch-view *,
+  .stitch-view::before,
+  .stitch-view::after {
+    border-width: 0;
+    border-style: solid;
+    border-color: #e5e7eb;
+  }
 }

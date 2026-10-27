@@ -58,8 +58,6 @@ export interface MapPersonnel {
   zoneDetail: string
 }
 
-const SHIFT_A = ['EMP-8821', 'EMP-9014', 'EMP-7742', 'EMP-4412', 'EMP-6320', 'EMP-5519', 'EMP-3108']
-
 const initialsOf = (name: string): string =>
   name
     .split(' ')
@@ -119,7 +117,7 @@ const buildPersonnel = (employee: EmployeeEntry): MapPersonnel | null => {
       x: clamp(DASHBOARD_MAP_FRAME.centerX + east / metersPerPixel, DASHBOARD_MAP_FRAME.margin, DASHBOARD_MAP_FRAME.width - DASHBOARD_MAP_FRAME.margin),
       y: clamp(DASHBOARD_MAP_FRAME.centerY - north / metersPerPixel, DASHBOARD_MAP_FRAME.margin, DASHBOARD_MAP_FRAME.height - DASHBOARD_MAP_FRAME.margin)
     },
-    shift: SHIFT_A.includes(employee.id) ? 'A' : 'B',
+    shift: shiftOf(employee.id),
     // "Present - 08:02" -> "Present (08:02)", independent of the separator glyph.
     checkinLabel: formatCheckin(employee.attendanceTime),
     zoneDetail: ZONE_DETAIL[employee.geofence] ?? employee.geofence,
@@ -130,19 +128,14 @@ const buildPersonnel = (employee: EmployeeEntry): MapPersonnel | null => {
 // Mock data removed; personnel now come from Supabase at runtime.
 
 /**
- * Presentation order of the tracker list (matches the published mockup order).
- * Anyone not listed is appended afterwards.
+ * Deterministic shift assignment derived from the employee id, so the Shift 1
+ * scope filter stays meaningful without any hardcoded roster ids.
  */
-const DISPLAY_ORDER = [
-  'EMP-8821',
-  'EMP-9014',
-  'EMP-7742',
-  'EMP-6320',
-  'EMP-4412',
-  'EMP-5519',
-  'EMP-4389'
-]
-
+const shiftOf = (id: string): 'A' | 'B' => {
+  let hash = 0
+  for (let i = 0; i < id.length; i += 1) hash = (hash * 31 + id.charCodeAt(i)) | 0
+  return Math.abs(hash) % 2 === 0 ? 'A' : 'B'
+}
 /** All personnel that can be projected on the tactical map. */
 export const fetchMapPersonnel = async (): Promise<MapPersonnel[]> => {
   if (!isSupabaseConfigured()) return []
@@ -170,11 +163,7 @@ export const fetchMapPersonnel = async (): Promise<MapPersonnel[]> => {
     updatedAt: raw.updated_at ?? new Date().toISOString()
   })) as EmployeeEntry[]
   const projected = RAW.map(buildPersonnel).filter((entry): entry is MapPersonnel => entry !== null)
-  projected.sort((a, b) => {
-    const ai = DISPLAY_ORDER.indexOf(a.id)
-    const bi = DISPLAY_ORDER.indexOf(b.id)
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
-  })
+  projected.sort((a, b) => a.empId.localeCompare(b.empId))
   return projected
 }
 

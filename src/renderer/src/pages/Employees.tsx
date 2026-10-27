@@ -50,7 +50,7 @@ const Employees: React.FC = () => {
     refresh
   } = useEmployeeDirectory()
 
-  const [selectedIds, setSelectedIds] = useState<string[]>(['EMP-8821', 'EMP-9014'])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   // Modals state
   const [showAddModal, setShowAddModal] = useState(false)

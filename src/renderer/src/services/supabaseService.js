@@ -69,7 +69,7 @@ export const supabaseService = {
     if (!isSupabaseConfigured()) return null;
     const { data, error } = await supabase
       .from('attendance')
-      .select('*, employees ( name, department, role )')
+      .select('*, employees ( name, emp_id, email, department, role, geofence, avatar, distance_meters )')
       .order('clock_in', { ascending: false });
     if (error) {
       console.error('[supabase] getAttendance', error);
@@ -87,5 +87,19 @@ export const supabaseService = {
         onUpdate(payload.new);
       })
       .subscribe();
+  },
+
+  // 6. Office locations & geofence sites for the Location page.
+  async getLocations() {
+    if (!isSupabaseConfigured()) return null;
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .order('code', { ascending: true });
+    if (error) {
+      console.error('[supabase] getLocations', error);
+      return null;
+    }
+    return data;
   }
 };

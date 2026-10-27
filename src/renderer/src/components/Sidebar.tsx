@@ -100,10 +100,10 @@ const Sidebar: React.FC = () => {
               if (fallback) fallback.style.display = 'flex'
             }}
           />
-          <div className="sidebar-user-avatar-fallback" style={{display:'none'}}>SJ</div>
+          <div className="sidebar-user-avatar-fallback" style={{display:'none'}}>—</div>
           <div className="sidebar-user-info" onClick={() => setShowProfile(true)} style={{ cursor: 'pointer' }}>
-            <span className="sidebar-user-name">{user?.name ?? 'Sarah Jenkins'}</span>
-            <span className="sidebar-user-role">{user?.role ?? 'Super Admin / HR Director'}</span>
+            <span className="sidebar-user-name">{user?.name ?? '—'}</span>
+            <span className="sidebar-user-role">{user?.role ?? '—'}</span>
           </div>
           <div className="sidebar-user-actions">
             <NavLink

@@ -55,10 +55,10 @@ const fetchFromSupabase = async (): Promise<AttendanceSnapshot | null> => {
     const checkoutTime = checkOutAt ? new Date(checkOutAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'In Progress'
     const durationMinutes = row.duration_minutes ?? 0
     return {
-      id: row.employee_id,
+      id: row.id ?? row.employee_id,
       name: emp.name ?? row.employee_id,
-      empId: row.employee_id,
-      avatar: '',
+      empId: emp.emp_id ?? row.employee_id,
+      avatar: emp.avatar ?? '',
       department: emp.department ?? '—',
       shiftName: 'Shift 1',
       shiftSchedule: '08:00 - 17:00',
@@ -69,8 +69,8 @@ const fetchFromSupabase = async (): Promise<AttendanceSnapshot | null> => {
       duration: `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`,
       statusType: row.is_inside_geofence ? 'present' : 'outside',
       statusLabel: row.status ?? (row.is_inside_geofence ? 'Present' : 'Outside Radius'),
-      locationName: 'HQ Central Hub',
-      locationDistance: '0m',
+      locationName: emp.geofence ?? '—',
+      locationDistance: emp.distance_meters != null ? `${emp.distance_meters}m` : '—',
       verifType: 'gps',
       verifLabel: 'Verified',
       verifIcon: 'verified',
@@ -92,7 +92,36 @@ const fetchFromSupabase = async (): Promise<AttendanceSnapshot | null> => {
       punchDate: checkInAt ? checkInAt.slice(0, 10) : serverNow.toISOString().slice(0, 10)
     }
   })
-  return { meta: { generatedAt: serverNow.toISOString(), expectedShiftStart: '08:00', gracePeriodMinutes: 15, totalEmployees: 0, organizationCounts: { present: 0, late: 0, absent: 0, leave: 0 }, averageDurationMinutes: 0, completionRatePercent: 0, geofenceRadiusMeters: 250, totalInsideFence: 0, totalOutsideFence: 0, anomalyCount: 0, lastSyncAt: serverNow.toISOString() } as any, sites: [], records }
+  /* Aggregate the real log rows into the meta contract (types/attendance.ts). */
+  const uniqueEmployees = new Set(rows.map((row: any) => row.employee_id)).size
+  const presentCount = records.filter((r) => r.statusType === 'present').length
+  const lateCount = records.filter((r) => String(r.statusLabel ?? '').toLowerCase().includes('late')).length
+  const leaveCount = records.filter((r) => String(r.statusLabel ?? '').toLowerCase().includes('leave')).length
+  const outsideCount = records.length - presentCount - leaveCount
+  const checkInMinutes = rows
+    .map((row: any) => (row.clock_in ? new Date(row.clock_in).getHours() * 60 + new Date(row.clock_in).getMinutes() : null))
+    .filter((m): m is number => m != null)
+  const avgCheckInLabel =
+    checkInMinutes.length > 0
+      ? `${String(Math.round(checkInMinutes.reduce((sum, m) => sum + m, 0) / checkInMinutes.length) % 24).padStart(2, '0')}:00`
+      : '—'
+  const loggedHours =
+    Math.round((rows.reduce((sum, row: any) => sum + (row.duration_minutes ?? 0), 0) / 60) * 10) / 10
+  const meta = {
+    generatedAt: serverNow.toISOString(),
+    expectedShiftStart: '08:00',
+    gracePeriodMinutes: 15,
+    totalEmployees: uniqueEmployees,
+    organizationCounts: { present: presentCount, late: lateCount, absent: Math.max(0, outsideCount), leave: leaveCount },
+    punctualityScore: records.length > 0 ? Math.round((presentCount / records.length) * 100) : 0,
+    punctualityTrendPercent: 0,
+    attendanceRatePercent: records.length > 0 ? Math.round((presentCount / records.length) * 100) : 0,
+    attendanceRateTrendPercent: 0,
+    avgCheckInLabel,
+    workHoursLogged: loggedHours,
+    workHoursExpected: uniqueEmployees * 8
+  }
+  return { meta, sites: [], records }
 }
 
 export const fetchAttendanceSnapshot = async (): Promise<AttendanceSnapshot> => {
