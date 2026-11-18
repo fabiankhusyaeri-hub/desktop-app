@@ -11,12 +11,12 @@ import type { MapFrameConfig } from '../utils/geo'
 import type { EmployeeEntry, LocationState } from '../types/employee'
 import type { AttendanceSite } from '../types/attendance'
 
-/** Vanguard Central HQ — the beacon drawn at (430, 250) with a 175px radius. */
+/** Kolam Renang Tirta Mulya — pusat geofence utama dashboard. */
 export const HQ_SITE: AttendanceSite = {
   id: 'hq',
-  name: 'HQ Central Hub',
-  lat: -6.209,
-  lng: 106.8455,
+  name: 'Kolam Renang Tirta Mulya',
+  lat: -6.8603952,
+  lng: 107.525447,
   radiusMeters: 250
 }
 
@@ -77,7 +77,7 @@ const formatCheckin = (attendanceTime: string): string => {
 }
 
 const ZONE_DETAIL: Record<string, string> = {
-  'HQ Central Hub': 'Working inside office area (Zone 3 • Floor 2)',
+  'Kolam Renang Tirta Mulya': 'Bekerja di area kolam renang (zona utama)',
   'Field Mobile Unit': 'Assigned field itinerary • client complex',
   'South Hub': 'South regional hub'
 }
@@ -149,7 +149,7 @@ export const fetchMapPersonnel = async (): Promise<MapPersonnel[]> => {
     rfidToken: raw.rfid_token ?? `RFID-${raw.id}`,
     department: raw.department ?? 'IT Engineering',
     role: raw.role ?? 'Field Operator',
-    geofence: raw.geofence ?? 'HQ Central Hub',
+    geofence: raw.geofence ?? 'Kolam Renang Tirta Mulya',
     attendanceStatus: raw.attendance_status ?? 'present',
     attendanceTime: raw.attendance_time ?? 'Registered Today',
     locationState: raw.location_state ?? 'online',

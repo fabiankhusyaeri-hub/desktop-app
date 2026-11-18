@@ -31,7 +31,7 @@ const loadEmployees = async (): Promise<void> => {
     rfidToken: raw.rfid_token ?? `RFID-${raw.id}`,
     department: raw.department ?? 'IT Engineering',
     role: raw.role ?? 'Field Operator',
-    geofence: raw.geofence ?? 'HQ Central Hub',
+    geofence: raw.geofence ?? 'Kolam Renang Tirta Mulya',
     attendanceStatus: raw.attendance_status ?? 'present',
     attendanceTime: raw.attendance_time ?? 'Registered Today',
     locationState: raw.location_state ?? 'online',

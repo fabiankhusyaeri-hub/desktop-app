@@ -49,6 +49,39 @@ export const downloadCsv = (baseName: string, rows: ExportRow[]): string => {
   return filename
 }
 
+const escapeCell = (value: string | number): string =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+/**
+ * Excel-compatible workbook written as an HTML table.
+ *
+ * Excel (and LibreOffice) open `.xls` files that contain a real `<table>`, so
+ * no spreadsheet library is needed. Kept as `.xls` — never as `.xlsx`, which
+ * would not be a valid OOXML package.
+ */
+export const rowsToXls = (rows: ExportRow[]): string => {
+  if (rows.length === 0) return '<html><body></body></html>'
+  const headers = Object.keys(rows[0])
+  const head = headers.map((key) => `<th>${escapeCell(key)}</th>`).join('')
+  const body = rows
+    .map((row) => `<tr>${headers.map((key) => `<td>${escapeCell(row[key])}</td>`).join('')}</tr>`)
+    .join('')
+  return (
+    '<html xmlns:x="urn:schemas-microsoft-com:office:excel">' +
+    '<head><meta charset="utf-8"></head>' +
+    `<body><table border="1"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></body></html>`
+  )
+}
+
+export const downloadXls = (baseName: string, rows: ExportRow[]): string => {
+  const filename = `${baseName}-${stamp()}.xls`
+  triggerDownload(filename, 'application/vnd.ms-excel', rowsToXls(rows))
+  return filename
+}
+
 export const downloadJson = (baseName: string, payload: unknown): string => {
   const filename = `${baseName}-${stamp()}.json`
   triggerDownload(filename, 'application/json', JSON.stringify(payload, null, 2))

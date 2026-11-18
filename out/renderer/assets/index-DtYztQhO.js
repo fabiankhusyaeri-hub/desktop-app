@@ -8635,7 +8635,7 @@ const Sidebar = () => {
   const [confirmSignOut, setConfirmSignOut] = reactExports.useState(false);
   const [toast, setToast] = reactExports.useState(null);
   const unread = getUnreadCount();
-  const showToast = (message) => {
+  const showToast2 = (message) => {
     setToast(message);
     window.setTimeout(() => setToast(null), 3e3);
   };
@@ -8763,7 +8763,7 @@ const Sidebar = () => {
             onClick: () => {
               markAllRead();
               setShowProfile(false);
-              showToast(`${unread} notification(s) cleared`);
+              showToast2(`${unread} notification(s) cleared`);
             },
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "notifications" }),
@@ -8799,7 +8799,7 @@ const Sidebar = () => {
             style: { background: "var(--color-error)", color: "var(--color-on-error)" },
             onClick: () => {
               setConfirmSignOut(false);
-              showToast("Session ended — re-authentication required");
+              showToast2("Session ended — re-authentication required");
               navigate("/dashboard");
             },
             children: [
@@ -11963,8 +11963,8 @@ var PostgrestQueryBuilder = class {
   * ```
   */
   select(columns, options) {
-    const { head: head2 = false, count } = options !== null && options !== void 0 ? options : {};
-    const method = head2 ? "HEAD" : "GET";
+    const { head = false, count } = options !== null && options !== void 0 ? options : {};
+    const method = head ? "HEAD" : "GET";
     let quoted = false;
     const cleanedColumns = (columns !== null && columns !== void 0 ? columns : "*").split("").map((c) => {
       if (/\s/.test(c) && !quoted) return "";
@@ -12716,6 +12716,30 @@ function toTransportFailure(cause, status, statusText) {
     statusText
   };
 }
+function withTimeout(fetch$1, timeout) {
+  if (timeout === void 0 || timeout <= 0) return fetch$1;
+  return (input, init) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const existingSignal = init === null || init === void 0 ? void 0 : init.signal;
+    if (existingSignal) {
+      if (existingSignal.aborted) {
+        clearTimeout(timeoutId);
+        return fetch$1(input, init);
+      }
+      const abortHandler = () => {
+        clearTimeout(timeoutId);
+        controller.abort();
+      };
+      existingSignal.addEventListener("abort", abortHandler, { once: true });
+      return fetch$1(input, _objectSpread2$2(_objectSpread2$2({}, init), {}, { signal: controller.signal })).finally(() => {
+        clearTimeout(timeoutId);
+        existingSignal.removeEventListener("abort", abortHandler);
+      });
+    }
+    return fetch$1(input, _objectSpread2$2(_objectSpread2$2({}, init), {}, { signal: controller.signal })).finally(() => clearTimeout(timeoutId));
+  };
+}
 var PostgrestClient = class PostgrestClient2 {
   /**
   * Creates a PostgREST client.
@@ -12731,6 +12755,10 @@ var PostgrestClient = class PostgrestClient2 {
   *   When enabled, idempotent requests (GET, HEAD, OPTIONS) that fail with network
   *   errors or HTTP 503/520 responses will be automatically retried up to 3 times
   *   with exponential backoff (1s, 2s, 4s). Defaults to `true`.
+  * @param options.wrapFetch - Wraps every fetch this client uses, including a per-request
+  *   `fetch` passed to `from()`, and is carried over to clients returned by `schema()`.
+  *   Use it for headers or instrumentation that must reach every request regardless of
+  *   which fetch performs it.
   * @example Using supabase-js (recommended)
   * ```ts
   * import { createClient } from '@supabase/supabase-js'
@@ -12756,44 +12784,35 @@ var PostgrestClient = class PostgrestClient2 {
   * })
   * ```
   */
-  constructor(url, { headers = {}, schema, fetch: fetch$1, timeout, urlLengthLimit = 8e3, retry } = {}) {
+  constructor(url, { headers = {}, schema, fetch: fetch$1, timeout, urlLengthLimit = 8e3, retry, wrapFetch } = {}) {
     this.url = url;
     this.headers = new Headers(headers);
     this.schemaName = schema;
     this.urlLengthLimit = urlLengthLimit;
-    const originalFetch = fetch$1 !== null && fetch$1 !== void 0 ? fetch$1 : globalThis.fetch;
-    if (timeout !== void 0 && timeout > 0) this.fetch = (input, init) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-      const existingSignal = init === null || init === void 0 ? void 0 : init.signal;
-      if (existingSignal) {
-        if (existingSignal.aborted) {
-          clearTimeout(timeoutId);
-          return originalFetch(input, init);
-        }
-        const abortHandler = () => {
-          clearTimeout(timeoutId);
-          controller.abort();
-        };
-        existingSignal.addEventListener("abort", abortHandler, { once: true });
-        return originalFetch(input, _objectSpread2$2(_objectSpread2$2({}, init), {}, { signal: controller.signal })).finally(() => {
-          clearTimeout(timeoutId);
-          existingSignal.removeEventListener("abort", abortHandler);
-        });
-      }
-      return originalFetch(input, _objectSpread2$2(_objectSpread2$2({}, init), {}, { signal: controller.signal })).finally(() => clearTimeout(timeoutId));
-    };
-    else this.fetch = originalFetch;
+    this.timeout = timeout;
+    this.wrapFetch = wrapFetch;
+    this.baseFetch = fetch$1 !== null && fetch$1 !== void 0 ? fetch$1 : globalThis.fetch;
+    this.fetch = this.baseFetch ? this.decorateFetch(this.baseFetch) : void 0;
     this.retry = retry;
   }
-  from(relation) {
+  /**
+  * Applies the client's decorations to a fetch implementation: `wrapFetch`
+  * first, then the timeout guard, so the timeout bounds the whole wrapped call.
+  * The client-level fetch and every per-request `fetch` passed to `from()` go
+  * through this.
+  */
+  decorateFetch(fetch$1) {
+    return withTimeout(this.wrapFetch ? this.wrapFetch(fetch$1) : fetch$1, this.timeout);
+  }
+  from(relation, options) {
+    var _options$urlLengthLim, _options$retry;
     if (!relation || typeof relation !== "string" || relation.trim() === "") throw new Error("Invalid relation name: relation must be a non-empty string.");
     return new PostgrestQueryBuilder(new URL(`${this.url}/${relation}`), {
       headers: new Headers(this.headers),
       schema: this.schemaName,
-      fetch: this.fetch,
-      urlLengthLimit: this.urlLengthLimit,
-      retry: this.retry
+      fetch: (options === null || options === void 0 ? void 0 : options.fetch) ? this.decorateFetch(options.fetch) : this.fetch,
+      urlLengthLimit: (_options$urlLengthLim = options === null || options === void 0 ? void 0 : options.urlLengthLimit) !== null && _options$urlLengthLim !== void 0 ? _options$urlLengthLim : this.urlLengthLimit,
+      retry: (_options$retry = options === null || options === void 0 ? void 0 : options.retry) !== null && _options$retry !== void 0 ? _options$retry : this.retry
     });
   }
   /**
@@ -12809,7 +12828,9 @@ var PostgrestClient = class PostgrestClient2 {
     return new PostgrestClient2(this.url, {
       headers: this.headers,
       schema,
-      fetch: this.fetch,
+      fetch: this.baseFetch,
+      timeout: this.timeout,
+      wrapFetch: this.wrapFetch,
       urlLengthLimit: this.urlLengthLimit,
       retry: this.retry
     });
@@ -13047,18 +13068,18 @@ var PostgrestClient = class PostgrestClient2 {
   * }
   * ```
   */
-  rpc(fn, args = {}, { head: head2 = false, get: get2 = false, count } = {}) {
+  rpc(fn, args = {}, { head = false, get: get2 = false, count } = {}) {
     var _this$fetch2;
     let method;
     const url = new URL(`${this.url}/rpc/${fn}`);
     let body;
     const _isObject = (v2) => v2 !== null && typeof v2 === "object" && (!Array.isArray(v2) || v2.some(_isObject));
-    const _hasObjectArg = head2 && Object.values(args).some(_isObject);
+    const _hasObjectArg = head && Object.values(args).some(_isObject);
     if (_hasObjectArg) {
       method = "POST";
       body = args;
-    } else if (head2 || get2) {
-      method = head2 ? "HEAD" : "GET";
+    } else if (head || get2) {
+      method = head ? "HEAD" : "GET";
       Object.entries(args).filter(([_, value]) => value !== void 0).map(([name, value]) => [name, Array.isArray(value) ? `{${value.join(",")}}` : `${value}`]).forEach(([name, value]) => {
         url.searchParams.append(name, value);
       });
@@ -13181,7 +13202,7 @@ Suggested solution: ${env.workaround}`;
     }
   }
 }
-const version$3 = "2.118.0";
+const version$3 = "2.119.0";
 const DEFAULT_VERSION = `realtime-js/${version$3}`;
 const VSN_1_0_0 = "1.0.0";
 const VSN_2_0_0 = "2.0.0";
@@ -13217,8 +13238,8 @@ class Serializer {
     this.BINARY_ENCODING = 0;
     this.JSON_ENCODING = 1;
     this.BROADCAST_EVENT = "broadcast";
-    this.allowedMetadataKeys = [];
-    this.allowedMetadataKeys = allowedMetadataKeys !== null && allowedMetadataKeys !== void 0 ? allowedMetadataKeys : [];
+    this.allowedMetadataKeys = Serializer.DEFAULT_METADATA_KEYS;
+    this.allowedMetadataKeys = allowedMetadataKeys !== null && allowedMetadataKeys !== void 0 ? allowedMetadataKeys : Serializer.DEFAULT_METADATA_KEYS;
   }
   encode(msg, callback) {
     if (msg.event === this.BROADCAST_EVENT && !(msg.payload instanceof ArrayBuffer) && typeof msg.payload.event === "string") {
@@ -13354,6 +13375,7 @@ class Serializer {
     return Object.fromEntries(Object.entries(obj).filter(([key]) => keys.includes(key)));
   }
 }
+Serializer.DEFAULT_METADATA_KEYS = ["persist"];
 var PostgresTypes;
 (function(PostgresTypes2) {
   PostgresTypes2["abstime"] = "abstime";
@@ -16071,7 +16093,7 @@ class RealtimeChannel {
    *
    * @param event The name of the broadcast event
    * @param payload Payload to be sent (required)
-   * @param opts Options including timeout
+   * @param opts Options including timeout and persist
    * @returns Promise resolving to object with success status, and error details if failed
    *
    * @category Realtime
@@ -16093,6 +16115,17 @@ class RealtimeChannel {
     url.pathname += `/${encodeURIComponent(this.subTopic)}/events/${encodeURIComponent(event)}`;
     if (this.private) {
       url.searchParams.set("private", "true");
+    }
+    if (opts.persist) {
+      if (!this.private) {
+        return Promise.reject(new Error("Realtime httpSend() cannot store a message on a public channel."));
+      }
+      const ttl = typeof opts.persist === "object" ? opts.persist.ttl : void 0;
+      if (ttl === void 0) {
+        url.searchParams.set("persist", "true");
+      } else {
+        url.searchParams.set("persist[ttl]", String(ttl));
+      }
     }
     const options = {
       method: "POST",
@@ -16121,6 +16154,7 @@ class RealtimeChannel {
    * @param args.type The type of event to send
    * @param args.event The name of the event being sent
    * @param args.payload Payload to be sent
+   * @param args.persist Stores the broadcast for replay on a private channel
    * @param opts Options to be used during the send process
    *
    * @category Realtime
@@ -16164,6 +16198,15 @@ class RealtimeChannel {
    */
   async send(args, opts = {}) {
     var _a, _b;
+    if (args.type === "broadcast" && args.persist && (!this.private || this.socket.vsn === VSN_1_0_0)) {
+      const persistError = this.private ? "Realtime send() cannot store a message with protocol 1.0.0. Use httpSend() or connect with vsn 2.0.0." : "Realtime send() cannot store a message on a public channel.";
+      if (this.socket.hasLogger()) {
+        this.socket.log("channel", persistError);
+      } else {
+        console.error(persistError);
+      }
+      return "error";
+    }
     if (!this.channelAdapter.canPush() && args.type === "broadcast") {
       const fallbackWarning = "Realtime send() is automatically falling back to REST API. This behavior will be deprecated in the future. Please use httpSend() explicitly for REST delivery.";
       if (this.socket.hasLogger()) {
@@ -16172,6 +16215,15 @@ class RealtimeChannel {
         console.warn(fallbackWarning);
       }
       const { event, payload: endpoint_payload } = args;
+      if (args.persist) {
+        const persistError = "Realtime send() fell back to REST and cannot store this message. The batch endpoint does not support persistence. Use httpSend() or send after the channel is connected and subscribed.";
+        if (this.socket.hasLogger()) {
+          this.socket.log("channel", persistError);
+        } else {
+          console.error(persistError);
+        }
+        return "error";
+      }
       const headers = {
         apikey: this.socket.apiKey ? this.socket.apiKey : "",
         "Content-Type": "application/json"
@@ -16212,7 +16264,7 @@ class RealtimeChannel {
           resolve("ok");
         }
         push.receive("ok", () => resolve("ok"));
-        push.receive("error", () => resolve("error"));
+        push.receive("error", (response) => resolve(args.persist && typeof (response === null || response === void 0 ? void 0 : response.error) === "string" ? response.error : "error"));
         push.receive("timeout", () => resolve("timed out"));
       });
     }
@@ -17147,7 +17199,7 @@ class RealtimeClient {
         defaultDecode = this.serializer.decode.bind(this.serializer);
         break;
       default:
-        throw new Error(`Unsupported serializer version: ${result.vsn}`);
+        throw new Error(`Unsupported serializer version: ${vsn}`);
     }
     result.vsn = vsn;
     result.encode = (_l = options === null || options === void 0 ? void 0 : options.encode) !== null && _l !== void 0 ? _l : defaultEncode;
@@ -17914,7 +17966,7 @@ function createFetchApi(namespace = "storage") {
   };
 }
 const defaultApi = createFetchApi("storage");
-const { get, post, put, head, remove } = defaultApi;
+const { get, post, put, remove } = defaultApi;
 const vectorsApi = createFetchApi("vectors");
 var BaseApiClient = class {
   /**
@@ -18089,6 +18141,10 @@ const DEFAULT_FILE_OPTIONS = {
   contentType: "text/plain;charset=UTF-8",
   upsert: false
 };
+function mergeFileOptions(fileOptions) {
+  const definedOptions = Object.fromEntries(Object.entries(fileOptions !== null && fileOptions !== void 0 ? fileOptions : {}).filter(([, value]) => value !== void 0));
+  return _objectSpread2$1(_objectSpread2$1({}, DEFAULT_FILE_OPTIONS), definedOptions);
+}
 var StorageFileApi = class extends BaseApiClient {
   constructor(url, headers = {}, bucketId, fetch$1) {
     super(url, headers, fetch$1, "storage");
@@ -18105,7 +18161,7 @@ var StorageFileApi = class extends BaseApiClient {
     var _this = this;
     return _this.handleOperation(async () => {
       let body;
-      const options = _objectSpread2$1(_objectSpread2$1({}, DEFAULT_FILE_OPTIONS), fileOptions);
+      const options = mergeFileOptions(fileOptions);
       let headers = _objectSpread2$1(_objectSpread2$1({}, _this.headers), method === "POST" && { "x-upsert": String(options.upsert) });
       const metadata = options.metadata;
       if (typeof Blob !== "undefined" && fileBody instanceof Blob || typeof FormData !== "undefined" && fileBody instanceof FormData) body = _this.prepareUploadFormData(fileBody, options);
@@ -18244,7 +18300,7 @@ var StorageFileApi = class extends BaseApiClient {
     url.searchParams.set("token", token);
     return _this3.handleOperation(async () => {
       let body;
-      const options = _objectSpread2$1(_objectSpread2$1({}, DEFAULT_FILE_OPTIONS), fileOptions);
+      const options = mergeFileOptions(fileOptions);
       let headers = _objectSpread2$1(_objectSpread2$1({}, _this3.headers), { "x-upsert": String(options.upsert) });
       const metadata = options.metadata;
       if (typeof Blob !== "undefined" && fileBody instanceof Blob || typeof FormData !== "undefined" && fileBody instanceof FormData) body = _this3.prepareUploadFormData(fileBody, options);
@@ -18736,6 +18792,14 @@ var StorageFileApi = class extends BaseApiClient {
   /**
   * Checks the existence of a file.
   *
+  * This reads the object's metadata, so the result is `false` only when Storage reports that the
+  * key does not exist: an error with code `NoSuchKey`, or an HTTP 404 with no error code. In that
+  * case `data` is `false` and `error` holds the original error.
+  *
+  * Every other failure throws instead of returning `false`, including an invalid or expired JWT
+  * (`InvalidJWT`), a missing bucket (`NoSuchBucket`) and network errors. With `throwOnError()`,
+  * a missing key throws as well.
+  *
   * @category Storage
   * @subcategory File Buckets
   * @param path The file path, including the file name. For example `folder/image.png`.
@@ -18750,26 +18814,16 @@ var StorageFileApi = class extends BaseApiClient {
   * ```
   */
   async exists(path) {
-    var _this11 = this;
-    const _path = _this11._getFinalPath(path);
-    try {
-      await head(_this11.fetch, `${_this11.url}/object/${_path}`, { headers: _this11.headers });
-      return {
-        data: true,
-        error: null
-      };
-    } catch (error) {
-      if (_this11.shouldThrowOnError) throw error;
-      if (isStorageError(error)) {
-        var _error$originalError;
-        const status = error instanceof StorageApiError ? error.status : error instanceof StorageUnknownError ? (_error$originalError = error.originalError) === null || _error$originalError === void 0 ? void 0 : _error$originalError.status : void 0;
-        if (status !== void 0 && [400, 404].includes(status)) return {
-          data: false,
-          error
-        };
-      }
-      throw error;
-    }
+    const { error } = await this.info(path);
+    if (!error) return {
+      data: true,
+      error: null
+    };
+    if (error instanceof StorageApiError && (error.code === "NoSuchKey" || error.status === 404 && error.code === void 0)) return {
+      data: false,
+      error
+    };
+    throw error;
   }
   /**
   * A simple convenience function to get the URL for an asset in a public bucket. If you do not want to use this function, you can construct the public URL by concatenating the bucket URL with the path to the asset.
@@ -19135,7 +19189,7 @@ var StorageFileApi = class extends BaseApiClient {
     return query;
   }
 };
-const version$2 = "2.118.0";
+const version$2 = "2.119.0";
 const DEFAULT_HEADERS$2 = { "X-Client-Info": `storage-js/${version$2}` };
 var StorageBucketApi = class extends BaseApiClient {
   constructor(url, headers = {}, fetch$1, opts) {
@@ -20691,13 +20745,13 @@ var StorageClient = class extends StorageBucketApi {
     return new StorageAnalyticsClient(this.url + "/iceberg", this.headers, this.fetch);
   }
 };
-const version$1 = "2.118.0";
+const version$1 = "2.119.0";
 const AUTO_REFRESH_TICK_DURATION_MS = 30 * 1e3;
 const AUTO_REFRESH_TICK_THRESHOLD = 3;
 const EXPIRY_MARGIN_MS = AUTO_REFRESH_TICK_THRESHOLD * AUTO_REFRESH_TICK_DURATION_MS;
 const REFRESH_FAILURE_COOLDOWN_MS = 2 * AUTO_REFRESH_TICK_DURATION_MS;
 const GOTRUE_URL = "http://localhost:9999";
-const STORAGE_KEY = "supabase.auth.token";
+const STORAGE_KEY$1 = "supabase.auth.token";
 const DEFAULT_HEADERS$1 = { "X-Client-Info": `gotrue-js/${version$1}` };
 const API_VERSION_HEADER_NAME = "X-Supabase-Api-Version";
 const API_VERSIONS = {
@@ -22215,6 +22269,8 @@ class GoTrueAdminApi {
   }
   /**
    * Delete a user. Requires a `service_role` key.
+   * Returns the user that was deleted. In cases of concurrent updates, the user object returned
+   * might not accurately reflect the user information at the time of deletion.
    *
    * @param id The user id you want to remove.
    * @param shouldSoftDelete If true, then the user will be soft-deleted from the auth schema. Soft deletion allows user identification from the hashed user ID but is not reversible.
@@ -22239,7 +22295,14 @@ class GoTrueAdminApi {
    * ```json
    * {
    *   "data": {
-   *     "user": {}
+   *     "user": {
+   *       "id": "715ed5db-f090-4b8c-a067-640ecee36aa0",
+   *       "aud": "authenticated",
+   *       "role": "authenticated",
+   *       "email": "example@email.com",
+   *       "created_at": "2024-01-01T00:00:00Z",
+   *       "updated_at": "2024-01-01T00:00:00Z"
+   *     }
    *   },
    *   "error": null
    * }
@@ -22248,13 +22311,18 @@ class GoTrueAdminApi {
   async deleteUser(id2, shouldSoftDelete = false) {
     validateUUID(id2);
     try {
-      return await _request(this.fetch, "DELETE", `${this.url}/admin/users/${id2}`, {
+      const { data, error } = await this.getUserById(id2);
+      if (error) {
+        return { data: { user: null }, error };
+      }
+      await _request(this.fetch, "DELETE", `${this.url}/admin/users/${id2}`, {
         headers: this.headers,
         body: {
           should_soft_delete: shouldSoftDelete
         },
-        xform: _userResponse
+        noResolveJson: true
       });
+      return { data, error: null };
     } catch (error) {
       if (isAuthError(error)) {
         return { data: { user: null }, error };
@@ -23399,7 +23467,7 @@ class WebAuthnApi {
 polyfillGlobalThis();
 const DEFAULT_OPTIONS = {
   url: GOTRUE_URL,
-  storageKey: STORAGE_KEY,
+  storageKey: STORAGE_KEY$1,
   autoRefreshToken: true,
   persistSession: true,
   detectSessionInUrl: true,
@@ -24064,7 +24132,7 @@ class GoTrueClient {
    * Be aware that you may get back an error message that will not distinguish
    * between the cases where the account does not exist or that the
    * email/phone and password combination is wrong or that the account can only
-   * be accessed via social login.
+   * be accessed via social sign-in.
    *
    * @category Auth
    *
@@ -24247,7 +24315,7 @@ class GoTrueClient {
    * @category Auth
    *
    * @remarks
-   * - This method is used for signing in using [Social Login (OAuth) providers](/docs/guides/auth#configure-third-party-providers).
+   * - This method is used for signing in using [social sign-in (OAuth) providers](/docs/guides/auth/social-sign-in).
    * - It works by redirecting your application to the provider's authorization screen, before bringing back the user to your app.
    *
    * @example Sign in using a third-party provider
@@ -24979,7 +25047,7 @@ class GoTrueClient {
    *
    * Be aware that you may get back an error message that will not distinguish
    * between the cases where the account does not exist or, that the account
-   * can only be accessed via social login.
+   * can only be accessed via social sign-in.
    *
    * Do note that you will need to configure a Whatsapp sender on Twilio
    * if you are using phone sign in with the 'whatsapp' channel. The whatsapp
@@ -26494,12 +26562,31 @@ class GoTrueClient {
     return !!currentStorageContent;
   }
   /**
-   * Inside a browser context, `signOut()` will remove the logged in user from the browser session and log them out - removing all items from localstorage and then trigger a `"SIGNED_OUT"` event.
+   * Inside a browser context, `signOut()` will remove the logged in user from the browser session
+   * and log them out - removing all items from localstorage and then trigger a `"SIGNED_OUT"`
+   * event.
    *
-   * For server-side management, you can revoke all refresh tokens for a user by passing a user's JWT through to `auth.api.signOut(JWT: string)`.
-   * There is no way to revoke a user's access token jwt until it expires. It is recommended to set a shorter expiry on the jwt for this reason.
+   * For server-side management, you can revoke all refresh tokens for a user by passing a user's
+   * JWT through to `auth.api.signOut(JWT: string)`.
    *
-   * If using `others` scope, no `SIGNED_OUT` event is fired!
+   * There is no way to revoke a user's access token jwt until it expires. It is recommended to set
+   * a shorter expiry on the jwt for this reason.
+   *
+   * `signOut` behavior depends on the selected scope:
+   *
+   * - `local`: The local session is removed first and a `SIGNED_OUT` event is fired, then the client
+   *   makes a best-effort request to revoke the refresh token on the server. If the request fails,
+   *   the client is still signed out locally and the error is returned, but the server may retain
+   *   the refresh token until it expires.
+   *
+   * - `global`: All of the user's sessions are first invalidated on the server. Once the server
+   *   acknowledges the request, the local session is cleared. If server logout fails, the local
+   *   session is retained, no `SIGNED_OUT` event is triggered, and the server or network error is
+   *   returned. A 401, 403, or 404 response counts as a successful sign-out.
+   *
+   * - `others`: All other sessions are invalidated when the server accepts the request; the
+   *   current local session remains unchanged. In case of server or network failures, the error is
+   *   returned. A `SIGNED_OUT` event is never triggered, regardless of the outcome.
    *
    * **Warning:** the default `scope` is `'global'`. This signs the user out of
    * **every device they are currently signed in on**, not just the current
@@ -26517,7 +26604,13 @@ class GoTrueClient {
    *   usually what apps want on a "Sign out" button, especially when users
    *   sign in from multiple devices and do not expect signing out of one to
    *   terminate the others.
-   * - Since Supabase Auth uses JWTs for authentication, the access token JWT will be valid until it's expired. When the user signs out, Supabase revokes the refresh token and deletes the JWT from the client-side. This does not revoke the JWT and it will still be valid until it expires.
+   * - With the default `global` scope, `signOut()` while offline returns an error and keeps the user
+   *   signed in. To sign out regardless, fall back to `signOut({ scope: 'local' })` when the call
+   *   returns an error.
+   * - Since Supabase Auth uses JWTs for authentication, the access token JWT will be valid until
+   *   it's expired. When the user signs out, Supabase revokes the refresh token and deletes the
+   *   JWT from the client-side. This does not revoke the JWT and it will still be valid until it
+   *   expires.
    *
    * @example Sign out of every device (global – default)
    * ```js
@@ -26543,7 +26636,7 @@ class GoTrueClient {
     }
     return await this._signOut(options);
   }
-  async _signOut({ scope } = { scope: "global" }) {
+  async _signOut({ scope = "global" } = {}) {
     return await this._useSession(async (result) => {
       var _a;
       const removeCurrentSession = async () => {
@@ -26551,24 +26644,36 @@ class GoTrueClient {
       };
       const { data, error: sessionError } = result;
       if (sessionError && !isAuthSessionMissingError(sessionError)) {
+        if (scope === "local" && isAuthRetryableFetchError(sessionError)) {
+          await removeCurrentSession();
+        }
         return this._returnResult({ error: sessionError });
       }
       const accessToken = (_a = data.session) === null || _a === void 0 ? void 0 : _a.access_token;
-      if (accessToken) {
-        const { error } = await this.admin.signOut(accessToken, scope);
-        if (error) {
-          if (!(isAuthApiError(error) && (error.status === 404 || error.status === 401 || error.status === 403) || isAuthSessionMissingError(error))) {
-            if (scope !== "others") {
-              await removeCurrentSession();
-            }
-            return this._returnResult({ error });
-          }
+      let removeError = null;
+      const finish = (value) => {
+        if (removeError) {
+          throw removeError.thrown;
+        }
+        return value;
+      };
+      if (scope === "local") {
+        try {
+          await removeCurrentSession();
+        } catch (thrown) {
+          removeError = { thrown };
         }
       }
-      if (scope !== "others") {
+      if (accessToken) {
+        const { error } = await this.admin.signOut(accessToken, scope);
+        if (error && !(isAuthApiError(error) && (error.status === 404 || error.status === 401 || error.status === 403) || isAuthSessionMissingError(error))) {
+          return finish(this._returnResult({ error }));
+        }
+      }
+      if (scope === "global") {
         await removeCurrentSession();
       }
-      return this._returnResult({ error: null });
+      return finish(this._returnResult({ error: null }));
     });
   }
   /**  *
@@ -26656,9 +26761,9 @@ class GoTrueClient {
    * ```
    *
    * @exampleDescription Store OAuth provider tokens on sign in
-   * When using [OAuth (Social Login)](/docs/guides/auth/social-login) you sometimes wish to get access to the provider's access token and refresh token, in order to call provider APIs in the name of the user.
+   * When using [OAuth (social sign-in)](/docs/guides/auth/social-sign-in) you sometimes wish to get access to the provider's access token and refresh token, in order to call provider APIs in the name of the user.
    *
-   * For example, if you are using [Sign in with Google](/docs/guides/auth/social-login/auth-google) you may want to use the provider token to call Google APIs on behalf of the user. Supabase Auth does not keep track of the provider access and refresh token, but does return them for you once, immediately after sign in. You can use the `onAuthStateChange` method to listen for the presence of the provider tokens and store them in local storage. You can further send them to your server's APIs for use on the backend.
+   * For example, if you are using [Sign in with Google](/docs/guides/auth/social-sign-in/auth-google) you may want to use the provider token to call Google APIs on behalf of the user. Supabase Auth does not keep track of the provider access and refresh token, but does return them for you once, immediately after sign in. You can use the `onAuthStateChange` method to listen for the presence of the provider tokens and store them in local storage. You can further send them to your server's APIs for use on the backend.
    *
    * Finally, make sure you remove them from local storage on the `SIGNED_OUT` event. If the OAuth provider supports token revocation, make sure you call those APIs either from the frontend or schedule them to be called on the backend.
    *
@@ -28770,7 +28875,7 @@ class GoTrueClient {
 }
 GoTrueClient.nextInstanceID = {};
 const AuthClient = GoTrueClient;
-const version = "2.118.0";
+const version = "2.119.0";
 let JS_ENV = "";
 let JS_RUNTIME_VERSION;
 if (typeof Deno !== "undefined") {
@@ -29294,7 +29399,8 @@ var SupabaseClient = class {
     this.rest = new PostgrestClient(new URL("rest/v1", baseUrl).href, {
       headers: this.headers,
       schema: settings.db.schema,
-      fetch: this.fetch,
+      fetch: resolveFetch(settings.global.fetch),
+      wrapFetch: (fetch$1) => fetchWithAuth(supabaseKey, supabaseUrl2, this._getSessionToken.bind(this), fetch$1, settings.tracePropagation),
       timeout: settings.db.timeout,
       urlLengthLimit: settings.db.urlLengthLimit,
       retry: settings.db.retry
@@ -29314,10 +29420,24 @@ var SupabaseClient = class {
   /**
   * Perform a query on a table or a view.
   *
+  * A per-request `fetch` is wrapped the same way as the client-level fetch: the
+  * `apikey`, `Authorization` and trace headers are added before it is called.
+  * The same applies to clients returned by `.schema()`.
+  *
   * @param relation - The table or view name to query
+  * @param options - Per-request options that override client-level defaults
+  *
+  * @example Per-request fetch options
+  * ```ts
+  * const { data } = await supabase
+  *   .from('countries', {
+  *     fetch: (input, init) => fetch(input, { ...init, cache: 'force-cache' }),
+  *   })
+  *   .select('*')
+  * ```
   */
-  from(relation) {
-    return this.rest.from(relation);
+  from(relation, options) {
+    return this.rest.from(relation, options);
   }
   /**
   * Select a schema to query or perform an function (rpc) call.
@@ -29510,25 +29630,89 @@ function shouldShowDeprecationWarning() {
   return parseInt(versionMatch[1], 10) <= 20;
 }
 if (shouldShowDeprecationWarning()) console.warn("⚠️  Node.js 20 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 22 or later. For more information, visit: https://github.com/orgs/supabase/discussions/45715");
-const supabaseUrl = "https://teuathobnzuwzwolpvon.supabase.co".trim();
-const supabaseAnonKey = "sb_publishable_NzSLD-wVP0AFY2-Psu6aTg_zKt3bih_".trim();
-const supabase = createClient(
-  supabaseUrl || "https://invalid.supabase.co",
-  supabaseAnonKey || "invalid-publishable-key"
-);
+const supabaseUrl = "https://teuathobnzuwzwolpvon.supabase.co".trim() || "https://teuathobnzuwzwolpvon.supabase.co";
+const supabaseAnonKey = "sb_publishable_NzSLD-wVP0AFY2-Psu6aTg_zKt3bih_".trim() || "sb_publishable_NzSLD-wVP0AFY2-Psu6aTg_zKt3bih_";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 const isSupabaseConfigured = function() {
-  return Boolean(supabaseUrl && supabaseAnonKey);
+  return Boolean(supabaseUrl !== "https://invalid.supabase.co");
 };
 const supabaseService = {
   // 1. Fetch employees for the directory & sidebar.
   async getEmployees() {
     if (!isSupabaseConfigured()) return null;
-    const { data, error } = await supabase.from("employees").select("*");
+    const { data, error } = await supabase.from("employees").select("*").order("created_at", { ascending: false });
     if (error) {
       console.error("[supabase] getEmployees", error);
       return null;
     }
     return data;
+  },
+  async createEmployee(input) {
+    if (!isSupabaseConfigured()) return null;
+    const id2 = input.id ?? `EMP-${Date.now()}`;
+    const payload = {
+      id: id2,
+      emp_id: input.emp_id ?? id2,
+      name: input.name ?? "New Employee",
+      email: input.email ?? "",
+      rfid_token: input.rfid_token ?? `RFID-${id2}`,
+      department: input.department ?? "General",
+      role: input.role ?? "Field Operator",
+      geofence: input.geofence ?? "Kolam Renang Tirta Mulya",
+      attendance_status: input.attendance_status ?? "present",
+      attendance_time: input.attendance_time ?? "Registered Today",
+      location_state: input.location_state ?? "online",
+      location_detail: input.location_detail ?? "Online (Enrolled)",
+      last_ping: input.last_ping ?? "Just now",
+      avatar: input.avatar ?? "",
+      gps_lat: input.gps_lat ?? null,
+      gps_lng: input.gps_lng ?? null,
+      gps_accuracy: input.gps_accuracy ?? null,
+      distance_meters: input.distance_meters ?? null,
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    const { data, error } = await supabase.from("employees").insert([payload]).select().single();
+    if (error) {
+      console.error("[supabase] createEmployee", error);
+      return null;
+    }
+    return data;
+  },
+  async updateEmployee(id2, input) {
+    if (!isSupabaseConfigured()) return null;
+    const { data, error } = await supabase.from("employees").update({
+      emp_id: input.emp_id ?? id2,
+      name: input.name ?? void 0,
+      email: input.email ?? void 0,
+      department: input.department ?? void 0,
+      role: input.role ?? void 0,
+      geofence: input.geofence ?? void 0,
+      attendance_status: input.attendance_status ?? void 0,
+      attendance_time: input.attendance_time ?? void 0,
+      location_state: input.location_state ?? void 0,
+      location_detail: input.location_detail ?? void 0,
+      last_ping: input.last_ping ?? void 0,
+      avatar: input.avatar ?? void 0,
+      gps_lat: input.gps_lat ?? void 0,
+      gps_lng: input.gps_lng ?? void 0,
+      gps_accuracy: input.gps_accuracy ?? void 0,
+      distance_meters: input.distance_meters ?? void 0,
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    }).eq("id", id2).select().single();
+    if (error) {
+      console.error("[supabase] updateEmployee", error);
+      return null;
+    }
+    return data;
+  },
+  async deleteEmployee(id2) {
+    if (!isSupabaseConfigured()) return false;
+    const { error } = await supabase.from("employees").delete().eq("id", id2);
+    if (error) {
+      console.error("[supabase] deleteEmployee", error);
+      return false;
+    }
+    return true;
   },
   // 2. Fetch live telemetry + joined employee info for the map markers.
   async getLiveTelemetry() {
@@ -29615,6 +29799,51 @@ const supabaseService = {
       return null;
     }
     return data;
+  },
+  // 6b. Same read as getLocations, but keeps the error visible.
+  // getLocations swallows failures (null == empty for the caller), which would
+  // make the Bulk Geofence Sync toast claim success while the server actually
+  // errored (e.g. missing table). Returns `{ data, error }` instead.
+  async getLocationsDetailed() {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: { message: "Supabase is not configured." } };
+    }
+    const { data, error } = await supabase.from("locations").select("*").order("code", { ascending: true });
+    if (error) {
+      console.error("[supabase] getLocationsDetailed", error);
+      return { data: null, error };
+    }
+    return { data, error: null };
+  },
+  // 7. Insert a new office location (Location page — Save Location).
+  //
+  // Unlike the fetch helpers above, this returns `{ data, error }` instead of
+  // swallowing the failure: the caller must show the real server message so a
+  // failed save is never reported as a success (e.g. missing table / RLS 42501
+  // / duplicate code).
+  async insertLocation(payload) {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: { message: "Supabase is not configured." } };
+    }
+    const { data, error } = await supabase.from("locations").insert([payload]).select().single();
+    if (error) {
+      console.error("[supabase] insertLocation", error);
+      return { data: null, error };
+    }
+    return { data, error: null };
+  },
+  // 8. Update an existing office location (edit form, status toggle).
+  // Same `{ data, error }` contract as insertLocation.
+  async updateLocation(id2, patch) {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: { message: "Supabase is not configured." } };
+    }
+    const { data, error } = await supabase.from("locations").update({ ...patch, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id2).select().single();
+    if (error) {
+      console.error("[supabase] updateLocation", error);
+      return { data: null, error };
+    }
+    return { data, error: null };
   }
 };
 let ALL_EMPLOYEES = [];
@@ -29630,7 +29859,7 @@ const loadEmployees$1 = async () => {
     rfidToken: raw.rfid_token ?? `RFID-${raw.id}`,
     department: raw.department ?? "IT Engineering",
     role: raw.role ?? "Field Operator",
-    geofence: raw.geofence ?? "HQ Central Hub",
+    geofence: raw.geofence ?? "Kolam Renang Tirta Mulya",
     attendanceStatus: raw.attendance_status ?? "present",
     attendanceTime: raw.attendance_time ?? "Registered Today",
     locationState: raw.location_state ?? "online",
@@ -30082,6 +30311,19 @@ const downloadCsv = (baseName, rows) => {
   triggerDownload(filename, "text/csv", rowsToCsv(rows));
   return filename;
 };
+const escapeCell = (value) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const rowsToXls = (rows) => {
+  if (rows.length === 0) return "<html><body></body></html>";
+  const headers = Object.keys(rows[0]);
+  const head = headers.map((key) => `<th>${escapeCell(key)}</th>`).join("");
+  const body = rows.map((row) => `<tr>${headers.map((key) => `<td>${escapeCell(row[key])}</td>`).join("")}</tr>`).join("");
+  return `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></body></html>`;
+};
+const downloadXls = (baseName, rows) => {
+  const filename = `${baseName}-${stamp()}.xls`;
+  triggerDownload(filename, "application/vnd.ms-excel", rowsToXls(rows));
+  return filename;
+};
 const EARTH_RADIUS_M = 63710088e-1;
 const METERS_PER_DEGREE_LAT = 110574;
 const METERS_PER_DEGREE_LNG_AT_EQUATOR = 111320;
@@ -30139,8 +30381,8 @@ const projectToMapFrame = (point, site, frame = DRAWER_MAP_FRAME) => {
 };
 const formatGpsCoordinate = (lat, lng) => `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? "N" : "S"}, ${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? "E" : "W"}`;
 const HQ_SITE = {
-  lat: -6.209,
-  lng: 106.8455,
+  lat: -6.8603952,
+  lng: 107.525447,
   radiusMeters: 250
 };
 const DASHBOARD_MAP_FRAME = {
@@ -30160,7 +30402,7 @@ const formatCheckin = (attendanceTime) => {
   return label ? `${label} (${time})` : `(${time})`;
 };
 const ZONE_DETAIL = {
-  "HQ Central Hub": "Working inside office area (Zone 3 • Floor 2)",
+  "Kolam Renang Tirta Mulya": "Bekerja di area kolam renang (zona utama)",
   "Field Mobile Unit": "Assigned field itinerary • client complex",
   "South Hub": "South regional hub"
 };
@@ -30213,7 +30455,7 @@ const fetchMapPersonnel = async () => {
     rfidToken: raw.rfid_token ?? `RFID-${raw.id}`,
     department: raw.department ?? "IT Engineering",
     role: raw.role ?? "Field Operator",
-    geofence: raw.geofence ?? "HQ Central Hub",
+    geofence: raw.geofence ?? "Kolam Renang Tirta Mulya",
     attendanceStatus: raw.attendance_status ?? "present",
     attendanceTime: raw.attendance_time ?? "Registered Today",
     locationState: raw.location_state ?? "online",
@@ -30333,7 +30575,7 @@ const DashboardContent = ({ data, msSinceSync, serverOffsetMs, onRefresh }) => {
       active = false;
     };
   }, []);
-  const showToast = (message) => {
+  const showToast2 = (message) => {
     setToast(message);
     window.setTimeout(() => setToast(null), 3e3);
   };
@@ -30401,7 +30643,7 @@ const DashboardContent = ({ data, msSinceSync, serverOffsetMs, onRefresh }) => {
       }))
     );
     void onRefresh();
-    showToast(`Exported ${data.attendanceLog.length} punch records → ${filename}`);
+    showToast2(`Exported ${data.attendanceLog.length} punch records → ${filename}`);
   };
   const handleBroadcast = async (event) => {
     event.preventDefault();
@@ -30413,7 +30655,7 @@ const DashboardContent = ({ data, msSinceSync, serverOffsetMs, onRefresh }) => {
     });
     setBroadcastOpen(false);
     setBroadcastMessage("");
-    showToast("Broadcast alert dispatched to the selected audience");
+    showToast2("Broadcast alert dispatched to the selected audience");
   };
   const renderLogRow = (emp) => /* @__PURE__ */ jsxRuntimeExports.jsxs("tr", { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("td", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
@@ -30798,7 +31040,7 @@ const DashboardContent = ({ data, msSinceSync, serverOffsetMs, onRefresh }) => {
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "map-ctrl-divider" }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("button", { className: "map-ctrl-btn", title: "Recenter", type: "button", onClick: () => {
               setZoom(1);
-              showToast("Map recentered on Vanguard Central HQ");
+              showToast2("Map recentered on Vanguard Central HQ");
             }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "my_location" }) })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "map-hq-beacon", children: [
@@ -30971,7 +31213,7 @@ const DashboardContent = ({ data, msSinceSync, serverOffsetMs, onRefresh }) => {
                   className: "btn btn-primary-container",
                   style: { padding: "4px 10px", fontSize: "var(--fs-label-sm)" },
                   type: "button",
-                  onClick: () => selectedPerson && showToast(`Focused on ${selectedPerson.name} at ${selectedPerson.gps.lat.toFixed(4)}, ${selectedPerson.gps.lng.toFixed(4)}`),
+                  onClick: () => selectedPerson && showToast2(`Focused on ${selectedPerson.name} at ${selectedPerson.gps.lat.toFixed(4)}, ${selectedPerson.gps.lng.toFixed(4)}`),
                   children: [
                     /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined", style: { fontSize: 14 }, children: "my_location" }),
                     "Focus"
@@ -31503,7 +31745,7 @@ const LiveMonitoring = () => {
   );
   const meta = snapshot?.meta;
   const selectedPersonnel = selected;
-  const showToast = (msg) => {
+  const showToast2 = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3e3);
   };
@@ -31512,7 +31754,7 @@ const LiveMonitoring = () => {
     void refresh().finally(() => {
       setTimeout(() => {
         setIsRefreshing(false);
-        showToast(`Telematics feed refreshed (${meta?.nodesOnline ?? 0} GPS Nodes Synced)`);
+        showToast2(`Telematics feed refreshed (${meta?.nodesOnline ?? 0} GPS Nodes Synced)`);
       }, 600);
     });
   };
@@ -31576,7 +31818,7 @@ const LiveMonitoring = () => {
             type: "button",
             onClick: () => {
               setAudioOn(!audioOn);
-              showToast(audioOn ? "Tactical Audio Muted" : "Tactical Audio: Enabled");
+              showToast2(audioOn ? "Tactical Audio Muted" : "Tactical Audio: Enabled");
             },
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", style: { color: "var(--color-secondary)" }, children: audioOn ? "volume_up" : "volume_off" }),
@@ -32028,7 +32270,7 @@ const LiveMonitoring = () => {
                     className: "map-nav-single-btn",
                     type: "button",
                     title: "Compass Orientation",
-                    onClick: () => showToast("Orientation locked to True North (360°)"),
+                    onClick: () => showToast2("Orientation locked to True North (360°)"),
                     children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-md", style: { color: "var(--color-on-surface)" }, children: "explore" })
                   }
                 )
@@ -32153,7 +32395,7 @@ const LiveMonitoring = () => {
                 className: "telemetry-tool-btn",
                 type: "button",
                 title: "Refresh Node",
-                onClick: () => showToast(`Pinging telemetry node for ${selectedPersonnel.name}`),
+                onClick: () => showToast2(`Pinging telemetry node for ${selectedPersonnel.name}`),
                 children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-md", children: "refresh" })
               }
             ),
@@ -32296,7 +32538,7 @@ const LiveMonitoring = () => {
             {
               className: "btn-ping-device",
               type: "button",
-              onClick: () => showToast(`Sent High-Frequency GPS Ping to ${selectedPersonnel.empId}`),
+              onClick: () => showToast2(`Sent High-Frequency GPS Ping to ${selectedPersonnel.empId}`),
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "near_me" }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Ping Device Location" })
@@ -32309,7 +32551,7 @@ const LiveMonitoring = () => {
               {
                 className: "btn-route",
                 type: "button",
-                onClick: () => showToast(`Loaded GPS Breadcrumb Route for ${selectedPersonnel.name}`),
+                onClick: () => showToast2(`Loaded GPS Breadcrumb Route for ${selectedPersonnel.name}`),
                 children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", style: { color: "var(--color-primary)" }, children: "route" }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "View Historical Route" })
@@ -32322,7 +32564,7 @@ const LiveMonitoring = () => {
                 className: "btn-chat",
                 type: "button",
                 title: "Contact Employee directly",
-                onClick: () => showToast(`Direct intercom opened with ${selectedPersonnel.name}`),
+                onClick: () => showToast2(`Direct intercom opened with ${selectedPersonnel.name}`),
                 children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "chat" })
               }
             )
@@ -32381,7 +32623,7 @@ const fromSupabaseEmployee = (row) => ({
   rfidToken: row.rfid_token ?? `RFID-${row.id}`,
   department: row.department ?? "IT Engineering",
   role: row.role ?? "Field Operator",
-  geofence: row.geofence ?? "HQ Central Hub",
+  geofence: row.geofence ?? "Kolam Renang Tirta Mulya",
   attendanceStatus: row.attendance_status ?? "present",
   attendanceTime: row.attendance_time ?? "Registered Today",
   locationState: row.location_state ?? "online",
@@ -32453,6 +32695,29 @@ const withGeneratedIds = (input) => {
   };
 };
 const createEmployee = async (input) => {
+  if (isSupabaseConfigured()) {
+    const created = await supabaseService.createEmployee({
+      id: `EMP-${Date.now()}`,
+      emp_id: `EMP-${Date.now()}`,
+      name: input.name,
+      email: input.email,
+      department: input.department,
+      role: input.role,
+      geofence: input.geofence,
+      attendance_status: "present",
+      attendance_time: "Registered Today",
+      location_state: "online",
+      location_detail: "Online (Enrolled)",
+      last_ping: "Just now"
+    });
+    if (created) {
+      const mapped = fromSupabaseEmployee(created);
+      if (cache) {
+        cache = { ...cache, employees: [mapped, ...cache.employees.filter((employee) => employee.id !== mapped.id)] };
+      }
+      return mapped;
+    }
+  }
   if (!isApiConfigured()) {
     const record = withGeneratedIds(input);
     if (cache) cache = { ...cache, employees: [record, ...cache.employees] };
@@ -32461,6 +32726,16 @@ const createEmployee = async (input) => {
   return apiPost(DIRECTORY_ENDPOINT, input);
 };
 const updateEmployee = async (id2, input) => {
+  if (isSupabaseConfigured()) {
+    const updated = await supabaseService.updateEmployee(id2, {
+      name: input.name,
+      email: input.email,
+      department: input.department,
+      role: input.role,
+      geofence: input.geofence
+    });
+    if (updated) return fromSupabaseEmployee(updated);
+  }
   if (!isApiConfigured()) {
     if (!cache) return null;
     let updated = null;
@@ -32477,6 +32752,15 @@ const updateEmployee = async (id2, input) => {
   return apiPatch(`${DIRECTORY_ENDPOINT}/${encodeURIComponent(id2)}`, input);
 };
 const deleteEmployee = async (id2) => {
+  if (isSupabaseConfigured()) {
+    const removed = await supabaseService.deleteEmployee(id2);
+    if (removed) {
+      if (cache) {
+        cache = { ...cache, employees: cache.employees.filter((employee) => employee.id !== id2) };
+      }
+      return true;
+    }
+  }
   if (!isApiConfigured()) {
     if (!cache) return false;
     const before = cache.employees.length;
@@ -32534,7 +32818,7 @@ const importEmployeesFromCsv = async (text) => {
       email: emailIdx >= 0 ? cells[emailIdx] : "",
       department: deptIdx >= 0 && cells[deptIdx] ? cells[deptIdx] : "IT Engineering",
       role: roleIdx >= 0 ? cells[roleIdx] : "Field Operator",
-      geofence: zoneIdx >= 0 && cells[zoneIdx] ? cells[zoneIdx] : "HQ Central Hub"
+      geofence: zoneIdx >= 0 && cells[zoneIdx] ? cells[zoneIdx] : "Kolam Renang Tirta Mulya"
     });
     if (!cache) cache = clone();
     cache = { ...cache, employees: [record, ...cache.employees] };
@@ -32726,9 +33010,9 @@ const Employees = () => {
   const [newEmpEmail, setNewEmpEmail] = reactExports.useState("");
   const [newEmpDept, setNewEmpDept] = reactExports.useState("IT Engineering");
   const [newEmpRole, setNewEmpRole] = reactExports.useState("");
-  const [newEmpZone, setNewEmpZone] = reactExports.useState("HQ Central Hub");
+  const [newEmpZone, setNewEmpZone] = reactExports.useState("Kolam Renang Tirta Mulya");
   const [formError, setFormError] = reactExports.useState(null);
-  const showToast = (msg) => {
+  const showToast2 = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3e3);
   };
@@ -32748,7 +33032,7 @@ const Employees = () => {
   };
   const handleResetFilters = () => {
     resetFilters();
-    showToast("Filters reset to default");
+    showToast2("Filters reset to default");
   };
   const openCreateModal = () => {
     setEditingEmployee(null);
@@ -32756,7 +33040,7 @@ const Employees = () => {
     setNewEmpEmail("");
     setNewEmpDept("IT Engineering");
     setNewEmpRole("");
-    setNewEmpZone("HQ Central Hub");
+    setNewEmpZone("Kolam Renang Tirta Mulya");
     setFormError(null);
     setShowAddModal(true);
   };
@@ -32787,7 +33071,7 @@ const Employees = () => {
     if (editingEmployee) {
       const updated = await editEmployee(editingEmployee.id, input);
       setShowAddModal(false);
-      showToast(
+      showToast2(
         updated ? `Employee ${updated.name} updated successfully!` : `Update for ${editingEmployee.empId} failed`
       );
       return;
@@ -32797,7 +33081,7 @@ const Employees = () => {
     setNewEmpName("");
     setNewEmpEmail("");
     setNewEmpRole("");
-    showToast(`Employee ${record.name} added successfully!`);
+    showToast2(`Employee ${record.name} added successfully!`);
   };
   const handleDeleteSelected = async () => {
     const ids = [...selectedIds];
@@ -32805,7 +33089,7 @@ const Employees = () => {
       await removeEmployee(id2);
     }
     setSelectedIds([]);
-    showToast(`${ids.length} employee record(s) removed from the directory`);
+    showToast2(`${ids.length} employee record(s) removed from the directory`);
   };
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "emp-container", children: [
     toastMessage && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "toast-notice", children: [
@@ -32843,7 +33127,7 @@ const Employees = () => {
                 if (!file) return;
                 const result = await importEmployeesFromCsv(await file.text());
                 await refresh();
-                showToast(
+                showToast2(
                   `Imported ${result.imported} employee(s)` + (result.skipped > 0 ? ` • ${result.skipped} row(s) skipped` : "")
                 );
               };
@@ -32876,7 +33160,7 @@ const Employees = () => {
                   last_ping: emp.lastPing
                 }))
               );
-              showToast(`Exported ${filteredEmployees.length} roster row(s) → ${filename}`);
+              showToast2(`Exported ${filteredEmployees.length} roster row(s) → ${filename}`);
             },
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "file_download" }),
@@ -33064,9 +33348,9 @@ const Employees = () => {
               onChange: (e) => setZoneFilter(e.target.value),
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "All Geofence Zones" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "HQ Central Hub" }),
                 /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "South Hub" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Field Mobile Unit" })
+                /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Field Mobile Unit" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Kolam Renang Tirta Mulya" })
               ]
             }
           ),
@@ -33095,7 +33379,7 @@ const Employees = () => {
           {
             className: "emp-btn-selection",
             type: "button",
-            onClick: () => showToast(`Assigning geofence boundary to ${selectedIds.length} employees`),
+            onClick: () => showToast2(`Assigning geofence boundary to ${selectedIds.length} employees`),
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "share_location" }),
               "Assign Geofence"
@@ -33107,7 +33391,7 @@ const Employees = () => {
           {
             className: "emp-btn-selection",
             type: "button",
-            onClick: () => showToast(`Exported CSV for ${selectedIds.length} selected employees`),
+            onClick: () => showToast2(`Exported CSV for ${selectedIds.length} selected employees`),
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "download" }),
               "Export Selected"
@@ -33511,7 +33795,7 @@ const Employees = () => {
               className: "emp-btn-action radar-btn",
               type: "button",
               title: "Ping Vehicle Telematics",
-              onClick: () => showToast(`High-frequency GPS ping sent to ${vehicle.plate}`),
+              onClick: () => showToast2(`High-frequency GPS ping sent to ${vehicle.plate}`),
               children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-md", children: "radar" })
             }
           ),
@@ -33521,7 +33805,7 @@ const Employees = () => {
               className: `emp-btn-action ${vehicle.status === "offline" ? "alert-btn" : ""}`,
               type: "button",
               title: "View Vehicle Telemetry",
-              onClick: () => showToast(`${vehicle.plate}: ${vehicle.fuelPercent}% fuel, ${vehicle.odometerKm.toLocaleString("en-US")} km, ${VEHICLE_STATUS_LABEL[vehicle.status]}`),
+              onClick: () => showToast2(`${vehicle.plate}: ${vehicle.fuelPercent}% fuel, ${vehicle.odometerKm.toLocaleString("en-US")} km, ${VEHICLE_STATUS_LABEL[vehicle.status]}`),
               children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-md", children: "visibility" })
             }
           )
@@ -33583,7 +33867,7 @@ const Employees = () => {
           {
             className: "emp-btn-rollcall",
             type: "button",
-            onClick: () => showToast("Muster roll alert broadcasted to all active personnel"),
+            onClick: () => showToast2("Muster roll alert broadcasted to all active personnel"),
             children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", style: { color: "var(--color-tertiary-fixed)" }, children: "crisis_alert" }),
               "Initiate Zone Roll Call"
@@ -33677,9 +33961,9 @@ const Employees = () => {
                 value: newEmpZone,
                 onChange: (e) => setNewEmpZone(e.target.value),
                 children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "HQ Central Hub" }),
                   /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "South Hub" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Field Mobile Unit" })
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Field Mobile Unit" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("option", { children: "Kolam Renang Tirta Mulya" })
                 ]
               }
             )
@@ -34016,16 +34300,16 @@ const Attendance = () => {
     }
     return Array.from(names).sort();
   }, [snapshot]);
-  const PAGE_SIZE = 8;
+  const PAGE_SIZE2 = 8;
   const [page, setPage] = reactExports.useState(1);
   reactExports.useEffect(() => {
     setPage(1);
   }, [filters]);
-  const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE2));
   const safePage = Math.min(page, pageCount);
-  const pageRecords = filteredRecords.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const rangeStart = filteredRecords.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
-  const rangeEnd = (safePage - 1) * PAGE_SIZE + pageRecords.length;
+  const pageRecords = filteredRecords.slice((safePage - 1) * PAGE_SIZE2, safePage * PAGE_SIZE2);
+  const rangeStart = filteredRecords.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE2 + 1;
+  const rangeEnd = (safePage - 1) * PAGE_SIZE2 + pageRecords.length;
   const pageWindow = reactExports.useMemo(() => {
     const maxButtons = 5;
     const from = Math.max(1, Math.min(safePage - 2, pageCount - maxButtons + 1));
@@ -34043,7 +34327,7 @@ const Attendance = () => {
     },
     drawerSite
   ) : null;
-  const showToast = (msg) => {
+  const showToast2 = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3e3);
   };
@@ -34062,24 +34346,24 @@ const Attendance = () => {
       verification: r2.verifLabel
     }));
     if (format === "Excel XLSX" || format === "PDF Audit Report") {
-      showToast(`${format} falls back to CSV in this build`);
+      showToast2(`${format} falls back to CSV in this build`);
     }
     const filename = downloadCsv("vanguard-timesheet", rows);
-    showToast(`Exported ${rows.length} record(s) → ${filename}`);
+    showToast2(`Exported ${rows.length} record(s) → ${filename}`);
   };
   const handleResetFilters = () => {
     resetFilters();
-    showToast("Filters reset to nominal");
+    showToast2("Filters reset to nominal");
   };
   const submitAdjustment = (event) => {
     event.preventDefault();
     if (!adjustRecord) return;
     if (!adjustReason.trim()) {
-      showToast("A justification is required for a timesheet adjustment");
+      showToast2("A justification is required for a timesheet adjustment");
       return;
     }
     setAdjustRecord(null);
-    showToast(
+    showToast2(
       `Adjustment queued for ${adjustRecord.empId}: ${adjustTime || "—"} (${adjustReason.trim()})`
     );
   };
@@ -34399,7 +34683,7 @@ const Attendance = () => {
             {
               className: "att-btn-adv-query",
               type: "button",
-              onClick: () => showToast("Advanced SQL/Telemetry Query Builder ready"),
+              onClick: () => showToast2("Advanced SQL/Telemetry Query Builder ready"),
               children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-sm", children: "tune" }),
                 "Advanced Query"
@@ -34869,7 +35153,7 @@ const Attendance = () => {
               className: "btn btn-secondary",
               style: { color: "var(--color-error)" },
               onClick: () => {
-                showToast(`Dispute logged for ${inspectDrawerRecord.empId}`);
+                showToast2(`Dispute logged for ${inspectDrawerRecord.empId}`);
                 setInspectDrawerRecord(null);
               },
               children: "Dispute Timestamp"
@@ -34881,7 +35165,7 @@ const Attendance = () => {
               type: "button",
               className: "btn btn-primary",
               onClick: () => {
-                showToast(`Record ${inspectDrawerRecord.empId} confirmed and cryptographically locked`);
+                showToast2(`Record ${inspectDrawerRecord.empId} confirmed and cryptographically locked`);
                 setInspectDrawerRecord(null);
               },
               children: "Confirm & Lock Record"
@@ -35992,13 +36276,21 @@ const toSiteRecord = (raw) => ({
   radiusMeters: raw.radius_meters ?? 250,
   status: ["active", "inactive", "dormant"].includes(raw.status) ? raw.status : "active",
   lastPingAt: raw.last_ping_at ?? null,
-  pingMs: raw.ping_ms ?? null
+  pingMs: raw.ping_ms ?? null,
+  lat: typeof raw.lat === "number" ? raw.lat : null,
+  lng: typeof raw.lng === "number" ? raw.lng : null
 });
 const fetchSites = async () => {
   if (!isSupabaseConfigured()) return [];
   const rows = await supabaseService.getLocations();
   if (!rows || rows.length === 0) return [];
   return rows.map(toSiteRecord);
+};
+const fetchSitesDetailed = async () => {
+  if (!isSupabaseConfigured()) return { sites: [], error: "Supabase is not configured." };
+  const { data, error } = await supabaseService.getLocationsDetailed();
+  if (error) return { sites: [], error: supabaseError(error).message };
+  return { sites: (data ?? []).map(toSiteRecord), error: null };
 };
 const fetchWorkforceKpi = async () => {
   try {
@@ -36036,6 +36328,61 @@ const telemetryDetail = (site) => {
   if (site.pingMs == null) return "Sensor Offline";
   return `Ping: ${site.pingMs}ms`;
 };
+const supabaseError = (err) => {
+  if (err && typeof err === "object" && "message" in err) {
+    const message = err.message;
+    if (typeof message === "string" && message.length > 0) return new Error(message);
+  }
+  return new Error("Supabase request failed.");
+};
+const generateSiteCode = () => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+  return `LOC-${out}`;
+};
+const parseCoordinate = (value) => {
+  const match = /-?\d+(?:\.\d+)?/.exec(value);
+  if (!match) return null;
+  let num = Number(match[0]);
+  if (!Number.isFinite(num)) return null;
+  if (num > 0 && /[SW]\s*$/i.test(value.slice(match.index + match[0].length))) num = -num;
+  return num;
+};
+const formatCoordinate = (value, axis) => {
+  if (value == null || !Number.isFinite(value)) return "";
+  const hemisphere = axis === "lat" ? value >= 0 ? "N" : "S" : value >= 0 ? "E" : "W";
+  return `${Math.abs(value)}° ${hemisphere}`;
+};
+const createSite = async (input) => {
+  if (!isSupabaseConfigured()) throw new Error("Supabase is not configured.");
+  const { data, error } = await supabaseService.insertLocation({
+    code: input.code ?? generateSiteCode(),
+    name: input.name,
+    address: input.address,
+    lat: input.lat,
+    lng: input.lng,
+    radius_meters: input.radiusMeters,
+    status: input.status
+  });
+  if (error || !data) throw supabaseError(error);
+  return toSiteRecord(data);
+};
+const updateSite = async (id2, patch) => {
+  if (!isSupabaseConfigured()) throw new Error("Supabase is not configured.");
+  const payload = {};
+  if (patch.name !== void 0) payload.name = patch.name;
+  if (patch.address !== void 0) payload.address = patch.address;
+  if (patch.lat !== void 0) payload.lat = patch.lat;
+  if (patch.lng !== void 0) payload.lng = patch.lng;
+  if (patch.radiusMeters !== void 0) payload.radius_meters = patch.radiusMeters;
+  if (patch.status !== void 0) payload.status = patch.status;
+  const { data, error } = await supabaseService.updateLocation(id2, payload);
+  if (error || !data) throw supabaseError(error);
+  return toSiteRecord(data);
+};
 const ACTIVE_BADGE = `<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-inverse-surface">
 <span class="relative flex h-2 w-2">
 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tertiary-fixed opacity-75"></span>
@@ -36046,6 +36393,7 @@ const ACTIVE_BADGE = `<div class="inline-flex items-center gap-1.5 px-2.5 py-1 r
 const plainBadge = (label) => `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm font-medium">
 <span class="w-2 h-2 rounded-full bg-outline"></span> ${label} </span>`;
 const EMPTY_ROW = `<tr><td colspan="7" class="py-10 px-space-md text-center font-body-sm text-body-sm text-on-surface-variant">No office locations configured yet. Add your first site to start monitoring geofence telemetry.</td></tr>`;
+const NO_MATCH_ROW = `<tr><td colspan="7" class="py-10 px-space-md text-center font-body-sm text-body-sm text-on-surface-variant">No locations match the current search or filters. Clear them to see every site.</td></tr>`;
 const deriveTemplates = () => {
   const base = prepareStitchHtml(extractBodyInner(htmlRaw$2));
   const tbodyStart = base.indexOf("<tbody");
@@ -36055,12 +36403,12 @@ const deriveTemplates = () => {
   if (rowMatches.length < 6) return { active: "", inactive: "" };
   const active = rowMatches[0] ?? "";
   const inactive = rowMatches[4] ?? "";
-  let tpl = active.replace("Vanguard Global HQ", "__NAME__").replace("HQ-01", "__CODE__").replace("Primary Core", "__CAT__").replace(/>corporate_fare</, ">__ICON__<").replace("742 Evergreen Blvd, Metro District, CA", "__ADDR__").replace("US-West-1A", "__ZONE__").replace(/width: 85%;?/, "width: __PCT__%;").replace("64 Staff", "__STAFF__ Staff").replace(/> 250m\s*</, "> __RADIUS__m<").replace(/font-numeric-mono text-label-sm text-on-surface">Today,\s*08:30 AM</, 'font-numeric-mono text-label-sm __STAMP_CLS__">__STAMP__<').replace(/Ping:\s*14ms</, "__DETAIL__<");
+  let tpl = active.replace("Vanguard Global HQ", "__NAME__").replace("HQ-01", "__CODE__").replace('data-site="HQ-01"', 'data-site="__CODE__"').replace("Primary Core", "__CAT__").replace(/>corporate_fare</, ">__ICON__<").replace("742 Evergreen Blvd, Metro District, CA", "__ADDR__").replace("US-West-1A", "__ZONE__").replace(/width: 85%;?/, "width: __PCT__%;").replace("64 Staff", "__STAFF__ Staff").replace(/> 250m\s*</, "> __RADIUS__m<").replace(/font-numeric-mono text-label-sm text-on-surface">Today,\s*08:30 AM</, 'font-numeric-mono text-label-sm __STAMP_CLS__">__STAMP__<').replace(/Ping:\s*14ms</, "__DETAIL__<");
   tpl = tpl.replace(
     /<div class="inline-flex items-center gap-1\.5 px-2\.5 py-1 rounded-full bg-inverse-surface">[\s\S]*?font-medium">Active<\/span>\s*<\/div>/,
     "__STATE_BADGE__"
   );
-  let tplIn = inactive.replace("North Distribution Center", "__NAME__").replace("BR-05", "__CODE__").replace("Maint. Offline", "__CAT__").replace(/>inventory_2</, ">__ICON__<").replace("800 Lake Shore Way, Chicago, IL", "__ADDR__").replace("US-Central-1", "__ZONE__").replace(/width: 12%;?/, "width: __PCT__%;").replace("5 Staff", "__STAFF__ Staff").replace(/> 350m\s*</, "> __RADIUS__m<").replace(/text-on-surface-variant">Yesterday,\s*18:00</, '__STAMP_CLS__">__STAMP__<').replace(/Sensor Offline</, "__DETAIL__<");
+  let tplIn = inactive.replace("North Distribution Center", "__NAME__").replace("BR-05", "__CODE__").replace('data-site="BR-05"', 'data-site="__CODE__"').replace("Maint. Offline", "__CAT__").replace(/>inventory_2</, ">__ICON__<").replace("800 Lake Shore Way, Chicago, IL", "__ADDR__").replace("US-Central-1", "__ZONE__").replace(/width: 12%;?/, "width: __PCT__%;").replace("5 Staff", "__STAFF__ Staff").replace(/> 350m\s*</, "> __RADIUS__m<").replace(/text-on-surface-variant">Yesterday,\s*18:00</, '__STAMP_CLS__">__STAMP__<').replace(/Sensor Offline</, "__DETAIL__<");
   tplIn = tplIn.replace(
     /<span class="inline-flex items-center gap-1\.5 px-2\.5 py-1 rounded-full bg-surface-container[\s\S]*?>\s*Inactive\s*<\/span>/,
     "__STATE_BADGE__"
@@ -36073,19 +36421,42 @@ const sub = (html, replacements) => {
   for (const [needle, value] of replacements) out = out.split(needle).join(value);
   return out;
 };
+const esc = (value) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const injectRowActions = (row, code) => {
+  const marker = '<div class="flex items-center justify-end gap-1">';
+  const start = row.indexOf(marker);
+  if (start === -1) return row;
+  const attrs = [
+    ` data-action="view-site" data-code="${esc(code)}"`,
+    ` data-action="edit-site" data-code="${esc(code)}"`,
+    ` data-action="toggle-site" data-code="${esc(code)}"`
+  ];
+  let out = row.slice(0, start + marker.length);
+  let idx = start + marker.length;
+  let found = 0;
+  while (found < attrs.length) {
+    const btn = row.indexOf("<button", idx);
+    if (btn === -1) break;
+    out += row.slice(idx, btn) + "<button" + attrs[found];
+    idx = btn + "<button".length;
+    found++;
+  }
+  out += row.slice(idx);
+  return out;
+};
 const buildRow = (site, maxStaff) => {
   const isInactiveLike = site.status !== "active";
   let row = isInactiveLike ? TEMPLATES.inactive : TEMPLATES.active;
   if (!row) return "";
   const pct2 = maxStaff > 0 ? Math.max(0, Math.min(100, Math.round(site.staffCount / maxStaff * 100))) : 0;
   const stamp2 = formatTelemetryStamp(site.lastPingAt);
-  return sub(row, [
-    ["__ICON__", site.icon],
-    ["__NAME__", site.name],
-    ["__CODE__", site.code],
-    ["__CAT__", site.category],
-    ["__ADDR__", site.address],
-    ["__ZONE__", site.zone],
+  const filled = sub(row, [
+    ["__ICON__", esc(site.icon)],
+    ["__NAME__", esc(site.name)],
+    ["__CODE__", esc(site.code)],
+    ["__CAT__", esc(site.category)],
+    ["__ADDR__", esc(site.address)],
+    ["__ZONE__", esc(site.zone)],
     ["__PCT__", String(pct2)],
     ["__STAFF__", String(site.staffCount)],
     ["__RADIUS__", String(site.radiusMeters)],
@@ -36097,19 +36468,266 @@ const buildRow = (site, maxStaff) => {
       site.status === "active" ? ACTIVE_BADGE : plainBadge(site.status === "inactive" ? "Inactive" : "Dormant")
     ]
   ]);
+  return injectRowActions(filled, site.code);
 };
+const tagById = (html, id2) => {
+  const idx = html.indexOf(`id="${id2}"`);
+  if (idx === -1) return null;
+  const start = html.lastIndexOf("<", idx);
+  const end = html.indexOf(">", idx);
+  if (start === -1 || end === -1) return null;
+  return [start, end];
+};
+const setTagClassById = (html, id2, className) => {
+  const range = tagById(html, id2);
+  if (!range) return html;
+  const [start, end] = range;
+  const tag = html.slice(start, end + 1);
+  if (!/class="[^"]*"/.test(tag)) return html;
+  const next = tag.replace(/class="[^"]*"/, `class="${className}"`);
+  return html.slice(0, start) + next + html.slice(end + 1);
+};
+const setTagClassByMarker = (html, marker, className) => {
+  const idx = html.indexOf(marker);
+  if (idx === -1) return html;
+  const gt = marker.indexOf(">");
+  const tagEnd = gt === -1 ? html.indexOf(">", idx) : idx + gt;
+  const tagStart = html.lastIndexOf("<", idx);
+  if (tagStart === -1 || tagEnd === -1) return html;
+  const tag = html.slice(tagStart, tagEnd + 1);
+  if (!/class="[^"]*"/.test(tag)) return html;
+  const next = tag.replace(/class="[^"]*"/, `class="${className}"`);
+  return html.slice(0, tagStart) + next + html.slice(tagEnd + 1);
+};
+const setInnerTextById = (html, id2, text) => {
+  const range = tagById(html, id2);
+  if (!range) return html;
+  const [, end] = range;
+  const closeStart = html.indexOf("</", end);
+  if (closeStart === -1) return html;
+  return html.slice(0, end + 1) + text + html.slice(closeStart);
+};
+const setInputValueById = (html, id2, value) => {
+  const range = tagById(html, id2);
+  if (!range) return html;
+  const [start, end] = range;
+  const tag = html.slice(start, end + 1);
+  const escaped = esc(value);
+  let next;
+  if (/\svalue="[^"]*"/.test(tag)) {
+    next = tag.replace(/\svalue="[^"]*"/, ` value="${escaped}"`);
+  } else if (escaped === "") {
+    next = tag;
+  } else if (tag.endsWith("/>")) {
+    next = `${tag.slice(0, -2)} value="${escaped}"/>`;
+  } else {
+    next = `${tag.slice(0, -1)} value="${escaped}">`;
+  }
+  return html.slice(0, start) + next + html.slice(end + 1);
+};
+const setInputCheckedById = (html, id2, checked) => {
+  const range = tagById(html, id2);
+  if (!range) return html;
+  const [start, end] = range;
+  let tag = html.slice(start, end + 1);
+  const hasChecked = /\schecked(?:="[^"]*")?/.test(tag);
+  if (checked && !hasChecked) {
+    tag = tag.endsWith("/>") ? `${tag.slice(0, -2)} checked="" />` : `${tag.slice(0, -1)} checked="">`;
+  } else if (!checked && hasChecked) {
+    tag = tag.replace(/\schecked(?:="[^"]*")?/g, "");
+  }
+  return html.slice(0, start) + tag + html.slice(end + 1);
+};
+const setSelectedOption = (html, selectId, value) => {
+  const idx = html.indexOf(`id="${selectId}"`);
+  if (idx === -1) return html;
+  const selStart = html.lastIndexOf("<select", idx);
+  const selEnd = html.indexOf("</select>", idx);
+  if (selStart === -1 || selEnd === -1) return html;
+  let region = html.slice(selStart, selEnd);
+  region = region.replace(/\s+selected(?:="[^"]*")?/g, "");
+  const optionMarker = `<option value="${value}"`;
+  const optIdx = region.indexOf(optionMarker);
+  if (optIdx !== -1) {
+    region = region.slice(0, optIdx) + `${optionMarker} selected` + region.slice(optIdx + optionMarker.length);
+  }
+  return html.slice(0, selStart) + region + html.slice(selEnd);
+};
+const setDisabledByMarker = (html, marker, disabled) => {
+  const idx = html.indexOf(marker);
+  if (idx === -1) return html;
+  const gt = marker.indexOf(">");
+  const tagEnd = gt === -1 ? html.indexOf(">", idx) : idx + gt;
+  const tagStart = html.lastIndexOf("<", idx);
+  if (tagStart === -1 || tagEnd === -1) return html;
+  let tag = html.slice(tagStart, tagEnd + 1);
+  const hasDisabled = tag.includes(' disabled=""');
+  if (disabled && !hasDisabled) {
+    tag = `${tag.slice(0, -1)} disabled="">`;
+  } else if (!disabled && hasDisabled) {
+    tag = tag.replace(' disabled=""', "");
+  }
+  return html.slice(0, tagStart) + tag + html.slice(tagEnd + 1);
+};
+const appendClassByMarker = (html, marker, className) => {
+  const idx = html.indexOf(marker);
+  if (idx === -1) return html;
+  const gt = marker.indexOf(">");
+  const tagEnd = gt === -1 ? html.indexOf(">", idx) : idx + gt;
+  const tagStart = html.lastIndexOf("<", idx);
+  if (tagStart === -1 || tagEnd === -1) return html;
+  const tag = html.slice(tagStart, tagEnd + 1);
+  const match = /class="([^"]*)"/.exec(tag);
+  if (!match) return html;
+  if (match[1].split(" ").includes(className)) return html;
+  const next = tag.replace(/class="([^"]*)"/, `class="$1 ${className}"`);
+  return html.slice(0, tagStart) + next + html.slice(tagEnd + 1);
+};
+const removeButtonByMarker = (html, marker) => {
+  const idx = html.indexOf(marker);
+  if (idx === -1) return html;
+  const tagStart = html.lastIndexOf("<button", idx);
+  const tagEnd = html.indexOf("</button>", idx);
+  if (tagStart === -1 || tagEnd === -1) return html;
+  return html.slice(0, tagStart) + html.slice(tagEnd + "</button>".length);
+};
+const addAttrById = (html, id2, attrs) => {
+  const range = tagById(html, id2);
+  if (!range) return html;
+  const [start, end] = range;
+  const tag = html.slice(start, end + 1);
+  if (tag.includes(attrs)) return html;
+  const next = tag.endsWith("/>") ? `${tag.slice(0, -2)} ${attrs}/>` : `${tag.slice(0, -1)} ${attrs}>`;
+  return html.slice(0, start) + next + html.slice(end + 1);
+};
+const addAttrByMarker = (html, marker, attrs) => {
+  const idx = html.indexOf(marker);
+  if (idx === -1) return html;
+  const gt = marker.indexOf(">");
+  const tagEnd = gt === -1 ? html.indexOf(">", idx) : idx + gt;
+  const tagStart = html.lastIndexOf("<", idx);
+  if (tagStart === -1 || tagEnd === -1) return html;
+  const tag = html.slice(tagStart, tagEnd + 1);
+  if (tag.includes(attrs)) return html;
+  const next = tag.endsWith("/>") ? `${tag.slice(0, -2)} ${attrs}/>` : `${tag.slice(0, -1)} ${attrs}>`;
+  return html.slice(0, tagStart) + next + html.slice(tagEnd + 1);
+};
+const ID_ATTRS = [
+  ["bulkSyncBtn", 'data-action="bulk-sync"'],
+  ["openModalBtn", 'data-action="add-site"'],
+  ["searchInput", 'data-focus="sitesearch"'],
+  ["clearSearchBtn", 'data-action="clear-search"'],
+  ["statusFilter", 'data-focus="filter-status"'],
+  ["radiusFilter", 'data-focus="filter-radius"'],
+  ["resetFiltersBtn", 'data-action="reset-filters"'],
+  ["tabNormalState", 'data-action="tab-live"'],
+  ["tabEmptyState", 'data-action="tab-empty"'],
+  ["viewTableBtn", 'data-action="view-table"'],
+  ["viewSplitBtn", 'data-action="view-split"'],
+  ["closeSplitBtn", 'data-action="view-table"'],
+  ["closeModalBtn", 'data-action="modal-close"'],
+  ["cancelModalBtn", 'data-action="modal-close"'],
+  ["saveLocationBtn", 'data-action="save-site"'],
+  ["radiusRange", 'data-focus="form-radius"'],
+  ["inputLocName", 'data-focus="form-name"'],
+  ["inputAddress", 'data-focus="form-address"'],
+  ["inputLat", 'data-focus="form-lat"'],
+  ["inputLng", 'data-focus="form-lng"'],
+  ["activeToggleCheckbox", 'data-focus="form-active"']
+];
+const MARKER_ATTRS = [
+  // Chevrons use markers WITHOUT the trailing `>`: the attribute is injected
+  // before that `>`, which would otherwise destroy the marker itself.
+  ['title="Previous Page"', 'data-action="page-prev"'],
+  ['title="Next Page"', 'data-action="page-next"'],
+  [">1</button>", 'data-action="page-1"'],
+  [">2</button>", 'data-action="page-2"'],
+  [">Clear Search &amp; Filters</button>", 'data-action="reset-filters"'],
+  [">+ Add New Site</button>", 'data-action="add-site"'],
+  [">100m (Compact)</button>", 'data-action="radius-preset" data-radius="100"'],
+  [">250m (Standard)</button>", 'data-action="radius-preset" data-radius="250"'],
+  [">500m (Campus / Depot)</button>", 'data-action="radius-preset" data-radius="500"']
+];
+const withDataAttributes = (html) => {
+  let out = html;
+  for (const [id2, attrs] of ID_ATTRS) out = addAttrById(out, id2, attrs);
+  for (const [marker, attrs] of MARKER_ATTRS) out = addAttrByMarker(out, marker, attrs);
+  out = appendClassByMarker(out, 'title="Next Page"', "disabled:opacity-40");
+  return out;
+};
+const CLS_MODAL_CLOSED = "fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm flex items-center justify-center p-space-md hidden overflow-y-auto";
+const CLS_MODAL_OPEN = "fixed inset-0 z-50 bg-inverse-surface/50 backdrop-blur-sm flex items-center justify-center p-space-md overflow-y-auto";
+const CLS_CLEAR_SEARCH = "absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface hidden";
+const CLS_CLEAR_SEARCH_VISIBLE = "absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface";
+const CLS_TBODY = "divide-y divide-surface-container-high/60 font-body-md text-body-md";
+const CLS_EMPTY_BLOCK_HIDDEN = "hidden py-16 px-space-lg flex-col items-center justify-center text-center";
+const CLS_EMPTY_BLOCK_SHOWN = "py-16 px-space-lg flex-col items-center justify-center text-center flex";
+const CLS_SPLIT_HIDDEN = "col-span-12 xl:col-span-4 hidden flex-col gap-space-md";
+const CLS_SPLIT_SHOWN = "col-span-12 xl:col-span-4 flex-col gap-space-md flex";
+const CLS_TABLE_COL = "col-span-12 transition-all duration-300";
+const CLS_TABLE_COL_SPLIT = "col-span-12 xl:col-span-8 transition-all duration-300";
+const CLS_TAB_ACTIVE = "px-2.5 py-1 rounded-md bg-surface-container-lowest font-label-sm text-label-sm text-primary font-semibold shadow-xs";
+const CLS_TAB_INACTIVE = "px-2.5 py-1 rounded-md text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm";
+const CLS_VIEW_ACTIVE = "flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-surface-container-lowest text-primary shadow-xs font-label-md text-label-md";
+const CLS_VIEW_INACTIVE = "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface font-label-md text-label-md";
+const CLS_TOAST_BASE = "fixed bottom-6 right-6 z-50 bg-inverse-surface text-inverse-on-surface px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 transition-transform duration-300";
+const CLS_CHIP_ACTIVE = "w-8 h-8 rounded-lg bg-primary-container text-on-primary font-numeric-mono text-label-sm font-semibold flex items-center justify-center shadow-xs";
+const CLS_CHIP_INACTIVE = "w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container font-numeric-mono text-label-sm font-medium flex items-center justify-center transition-colors";
+const CLS_PRESET_BASE = "px-2.5 py-1 rounded bg-surface-container hover:bg-surface-container-high font-numeric-mono text-label-sm text-on-surface-variant";
+const CLS_PRESET_ACTIVE = "px-2.5 py-1 rounded bg-surface-container-lowest font-numeric-mono text-label-sm text-primary font-semibold shadow-xs";
+const PRESETS = [100, 250, 500];
+const PRESET_MARKERS = {
+  100: ">100m (Compact)</button>",
+  250: ">250m (Standard)</button>",
+  500: ">500m (Campus / Depot)</button>"
+};
+const PAGE_SIZE$1 = 6;
+const EMPTY_FORM = { name: "Kolam Renang Tirta Mulya", address: "", lat: "-6.8603952° S", lng: "107.525447° E", active: true };
+const INITIAL_UI = {
+  search: "",
+  statusFilter: "all",
+  radiusFilter: "all",
+  stateTab: "live",
+  view: "table",
+  page: 1,
+  modalOpen: false,
+  modalMode: "add",
+  modalSiteId: null,
+  form: EMPTY_FORM,
+  toast: { show: false, title: "", desc: "", tone: "success" }
+};
+const filterSites = (sites, ui2) => {
+  const query = ui2.search.trim().toLowerCase();
+  return sites.filter((site) => {
+    if (query && !site.name.toLowerCase().includes(query) && !site.code.toLowerCase().includes(query) && !site.address.toLowerCase().includes(query)) {
+      return false;
+    }
+    if (ui2.statusFilter === "active" && site.status !== "active") return false;
+    if (ui2.statusFilter === "inactive" && site.status === "active") return false;
+    if (ui2.radiusFilter === "150" && site.radiusMeters > 150) return false;
+    if (ui2.radiusFilter === "250" && !(site.radiusMeters >= 200 && site.radiusMeters <= 350)) return false;
+    if (ui2.radiusFilter === "500" && site.radiusMeters < 400) return false;
+    return true;
+  });
+};
+const pageCountOf = (filtered) => Math.max(1, Math.ceil(filtered.length / PAGE_SIZE$1));
 const METRIC_SPAN = '<span class="font-numeric-metric text-numeric-metric text-on-surface">';
-const locationHtml = (baseInner, sites, workforce) => {
+const locationHtml = (baseInner, sites, workforce, ui2, radius) => {
   if (!baseInner) return "";
   const stats = summarizeSites(sites);
   const pctOnline = sites.length > 0 ? Math.round(stats.active / sites.length * 100) : 0;
   let html = baseInner;
+  const filtered = filterSites(sites, ui2);
+  const pageCount = pageCountOf(filtered);
+  const safePage = Math.min(Math.max(1, ui2.page), pageCount);
+  const startIdx = (safePage - 1) * PAGE_SIZE$1;
+  const pageRows = filtered.slice(startIdx, startIdx + PAGE_SIZE$1);
   const tbodyStart = html.indexOf("<tbody");
   const tbodyOpenEnd = html.indexOf(">", tbodyStart);
   const tbodyEnd = html.indexOf("</tbody>", tbodyStart);
   if (tbodyStart !== -1 && tbodyEnd !== -1) {
     const maxStaff = sites.reduce((max, s) => Math.max(max, s.staffCount), 0);
-    const tbodyInner = sites.length > 0 ? sites.map((s) => buildRow(s, maxStaff)).join("\n") : EMPTY_ROW;
+    const tbodyInner = filtered.length > 0 ? pageRows.map((s) => buildRow(s, maxStaff)).join("\n") : sites.length > 0 ? NO_MATCH_ROW : EMPTY_ROW;
     html = html.slice(0, tbodyOpenEnd + 1) + tbodyInner + html.slice(tbodyEnd);
   }
   const kpiValues = [
@@ -36129,24 +36747,105 @@ const locationHtml = (baseInner, sites, workforce) => {
   html = html.replace(">100% ONLINE<", `>${pctOnline}% ONLINE<`);
   html = html.replace("114 On-Premises", `${workforce.onPremises} On-Premises`);
   html = html.replace("14 Field Units", `${workforce.fieldUnits} Field Units`);
-  const displayed = Math.min(sites.length, 6);
-  const rangeLabel = displayed > 0 ? `1 – ${displayed}` : "0";
-  html = html.replace(">1 – 6<", `>${rangeLabel}<`);
-  html = html.replace(">8 locations<", `>${sites.length} locations<`);
+  const rangeStart = filtered.length === 0 ? 0 : startIdx + 1;
+  const rangeEnd = filtered.length === 0 ? 0 : startIdx + pageRows.length;
+  html = html.replace(">1 – 6<", `>${rangeStart} – ${rangeEnd}<`);
+  html = html.replace(">8 locations<", `>${filtered.length} locations<`);
   html = html.replace("Active Nodes: 6 / 8", `Active Nodes: ${stats.active} / ${stats.total}`);
-  if (sites.length <= 6) {
-    html = html.replace(
-      /<button class="w-8 h-8 rounded-lg text-on-surface-variant hover:bg-surface-container[^"]*">2<\/button>/,
-      ""
+  if (pageCount <= 1) {
+    html = removeButtonByMarker(html, 'data-action="page-2"');
+  }
+  if (safePage === 2) {
+    html = html.replace(`class="${CLS_CHIP_INACTIVE}"`, `class="${CLS_CHIP_ACTIVE}"`);
+  }
+  if (safePage !== 1) {
+    html = html.replace(`class="${CLS_CHIP_ACTIVE}"`, `class="${CLS_CHIP_INACTIVE}"`);
+  }
+  html = setDisabledByMarker(html, 'title="Previous Page"', safePage <= 1);
+  html = setDisabledByMarker(html, 'title="Next Page"', safePage >= pageCount);
+  html = setSelectedOption(html, "statusFilter", ui2.statusFilter);
+  html = setSelectedOption(html, "radiusFilter", ui2.radiusFilter);
+  html = setInputValueById(html, "searchInput", ui2.search);
+  html = setTagClassById(
+    html,
+    "clearSearchBtn",
+    ui2.search.trim() ? CLS_CLEAR_SEARCH_VISIBLE : CLS_CLEAR_SEARCH
+  );
+  const emptyMode = ui2.stateTab === "empty";
+  html = setTagClassById(html, "tabNormalState", emptyMode ? CLS_TAB_INACTIVE : CLS_TAB_ACTIVE);
+  html = setTagClassById(html, "tabEmptyState", emptyMode ? CLS_TAB_ACTIVE : CLS_TAB_INACTIVE);
+  html = setTagClassById(html, "locationsTableBody", emptyMode ? `${CLS_TBODY} hidden` : CLS_TBODY);
+  html = setTagClassById(html, "simulatedEmptyBlock", emptyMode ? CLS_EMPTY_BLOCK_SHOWN : CLS_EMPTY_BLOCK_HIDDEN);
+  const splitMode = ui2.view === "split";
+  html = setTagClassById(html, "viewTableBtn", splitMode ? CLS_VIEW_INACTIVE : CLS_VIEW_ACTIVE);
+  html = setTagClassById(html, "viewSplitBtn", splitMode ? CLS_VIEW_ACTIVE : CLS_VIEW_INACTIVE);
+  html = setTagClassById(html, "splitMapPane", splitMode ? CLS_SPLIT_SHOWN : CLS_SPLIT_HIDDEN);
+  html = setTagClassById(html, "tableContainerCol", splitMode ? CLS_TABLE_COL_SPLIT : CLS_TABLE_COL);
+  const editingSite = ui2.modalSiteId ? sites.find((s) => s.id === ui2.modalSiteId) ?? null : null;
+  const modalTitle = ui2.modalMode === "edit" ? `Edit Geofence perimeter [${editingSite?.code ?? "—"}]` : ui2.modalMode === "view" ? `Geofence Details [${editingSite?.code ?? "—"}]` : "Add New Office Location";
+  html = setTagClassById(html, "locationModalOverlay", ui2.modalOpen ? CLS_MODAL_OPEN : CLS_MODAL_CLOSED);
+  html = setInnerTextById(html, "modalTitle", esc(modalTitle));
+  html = setInputValueById(html, "inputLocName", ui2.form.name);
+  html = setInputValueById(html, "inputAddress", ui2.form.address);
+  html = setInputValueById(html, "inputLat", ui2.form.lat);
+  html = setInputValueById(html, "inputLng", ui2.form.lng);
+  html = setInputValueById(html, "radiusRange", String(radius));
+  html = setInputCheckedById(html, "activeToggleCheckbox", ui2.form.active);
+  html = setInnerTextById(html, "radiusValDisplay", String(radius));
+  html = setInnerTextById(html, "modalLegendRadius", `${radius}m`);
+  const latLabel = parseCoordinate(ui2.form.lat);
+  const lngLabel = parseCoordinate(ui2.form.lng);
+  html = setInnerTextById(
+    html,
+    "modalCoordLabel",
+    esc(`Lat: ${latLabel ?? "—"}, Lng: ${lngLabel ?? "—"} (Demo)`)
+  );
+  for (const preset of PRESETS) {
+    html = setTagClassByMarker(
+      html,
+      PRESET_MARKERS[preset],
+      radius === preset ? CLS_PRESET_ACTIVE : CLS_PRESET_BASE
     );
   }
+  html = setTagClassById(
+    html,
+    "toastNotification",
+    ui2.toast.show ? CLS_TOAST_BASE : `${CLS_TOAST_BASE} translate-y-24`
+  );
+  html = setInnerTextById(html, "toastTitle", esc(ui2.toast.title));
+  html = setInnerTextById(html, "toastDesc", esc(ui2.toast.desc));
+  html = html.replace(
+    'text-xl">check_circle</span>',
+    `text-xl">${ui2.toast.tone === "error" ? "error" : "check_circle"}</span>`
+  );
   return html;
+};
+const applyRadiusDom = (root, radiusValue) => {
+  const display = root.querySelector("#radiusValDisplay");
+  if (display) display.textContent = String(radiusValue);
+  const legend = root.querySelector("#modalLegendRadius");
+  if (legend) legend.textContent = `${radiusValue}m`;
+  const range = root.querySelector("#radiusRange");
+  if (range instanceof HTMLInputElement && range.value !== String(radiusValue)) {
+    range.value = String(radiusValue);
+  }
+  for (const preset of PRESETS) {
+    const chip = root.querySelector(`[data-radius="${preset}"]`);
+    if (chip) chip.setAttribute("class", radiusValue === preset ? CLS_PRESET_ACTIVE : CLS_PRESET_BASE);
+  }
 };
 const LocationView = () => {
   const [sites, setSites] = reactExports.useState([]);
   const [workforce, setWorkforce] = reactExports.useState(emptyWorkforceKpi);
-  const baseInner = reactExports.useMemo(() => prepareStitchHtml(extractBodyInner(htmlRaw$2)), []);
-  const inner = reactExports.useMemo(() => locationHtml(baseInner, sites, workforce), [baseInner, sites, workforce]);
+  const [ui2, setUi] = reactExports.useState(INITIAL_UI);
+  const containerRef = reactExports.useRef(null);
+  const radiusRef = reactExports.useRef(250);
+  const focusRef = reactExports.useRef(null);
+  const baseInner = reactExports.useMemo(() => withDataAttributes(prepareStitchHtml(extractBodyInner(htmlRaw$2))), []);
+  const inner = reactExports.useMemo(
+    () => locationHtml(baseInner, sites, workforce, ui2, radiusRef.current),
+    [baseInner, sites, workforce, ui2]
+  );
   reactExports.useEffect(() => {
     let subscribed = true;
     void fetchSites().then((rows) => {
@@ -36159,11 +36858,324 @@ const LocationView = () => {
       subscribed = false;
     };
   }, []);
+  reactExports.useEffect(() => {
+    if (!ui2.toast.show) return;
+    const timer = setTimeout(() => {
+      setUi((prev) => prev.toast.show ? { ...prev, toast: { ...prev.toast, show: false } } : prev);
+    }, 3e3);
+    return () => clearTimeout(timer);
+  }, [ui2.toast]);
+  reactExports.useEffect(() => {
+    const focus = focusRef.current;
+    const root = containerRef.current;
+    if (!focus || !root) return;
+    const el2 = root.querySelector(`[data-focus="${focus.key}"]`);
+    if (!el2) return;
+    el2.focus();
+    if (el2 instanceof HTMLInputElement && el2.type === "text") {
+      if (focus.key === "sitesearch") {
+        const end = el2.value.length;
+        el2.setSelectionRange(end, end);
+      } else if (focus.start !== null) {
+        const start = Math.min(focus.start, el2.value.length);
+        const end = Math.min(focus.end ?? focus.start, el2.value.length);
+        el2.setSelectionRange(start, end);
+      } else {
+        const end = el2.value.length;
+        el2.setSelectionRange(end, end);
+      }
+    }
+  }, [inner]);
+  const showToast2 = (title, desc, tone = "success") => {
+    setUi((prev) => ({ ...prev, toast: { show: true, title, desc, tone } }));
+  };
+  const openAddModal = () => {
+    radiusRef.current = 250;
+    setUi((prev) => ({
+      ...prev,
+      modalOpen: true,
+      modalMode: "add",
+      modalSiteId: null,
+      form: { ...EMPTY_FORM }
+    }));
+  };
+  const openSiteModal = (code, mode) => {
+    const site = sites.find((s) => s.code === code);
+    if (!site) {
+      showToast2("Site Not Found", `No location with code ${code} exists on the server.`, "error");
+      return;
+    }
+    radiusRef.current = site.radiusMeters;
+    setUi((prev) => ({
+      ...prev,
+      modalOpen: true,
+      modalMode: mode,
+      modalSiteId: site.id,
+      form: {
+        name: site.name,
+        address: site.address,
+        lat: formatCoordinate(site.lat, "lat"),
+        lng: formatCoordinate(site.lng, "lng"),
+        active: site.status === "active"
+      }
+    }));
+  };
+  const runBulkSync = () => {
+    showToast2("Syncing Geofences...", "Reloading sites and workforce metrics from the server.");
+    void (async () => {
+      try {
+        const [siteResult, kpi] = await Promise.all([fetchSitesDetailed(), fetchWorkforceKpi()]);
+        setWorkforce(kpi);
+        if (siteResult.error) {
+          showToast2("Sync Failed", siteResult.error, "error");
+          return;
+        }
+        setSites(siteResult.sites);
+        const count = siteResult.sites.length;
+        showToast2(
+          "Sync Complete",
+          count === 1 ? "1 geofence site reloaded from the server." : `${count} geofence sites reloaded from the server.`
+        );
+      } catch (err) {
+        showToast2("Sync Failed", err instanceof Error ? err.message : "Unknown error.", "error");
+      }
+    })();
+  };
+  const resetFilters = () => {
+    setUi((prev) => ({
+      ...prev,
+      search: "",
+      statusFilter: "all",
+      radiusFilter: "all",
+      stateTab: "live",
+      page: 1
+    }));
+    showToast2("Filters Reset", `Displaying all ${sites.length} office geofence locations.`);
+  };
+  const toggleSiteStatus = (code) => {
+    const site = sites.find((s) => s.code === code);
+    if (!site) {
+      showToast2("Site Not Found", `No location with code ${code} exists on the server.`, "error");
+      return;
+    }
+    const nextStatus = site.status === "active" ? "inactive" : "active";
+    void (async () => {
+      try {
+        await updateSite(site.id, { status: nextStatus });
+        const result = await fetchSitesDetailed();
+        if (result.error) {
+          showToast2("Status Updated", `${site.name} is now ${nextStatus}, but reload failed: ${result.error}`);
+          return;
+        }
+        setSites(result.sites);
+        showToast2("Status Updated", `${site.name} is now ${nextStatus}.`);
+      } catch (err) {
+        showToast2("Update Failed", err instanceof Error ? err.message : "Unknown error.", "error");
+      }
+    })();
+  };
+  const saveModal = () => {
+    const name = ui2.form.name.trim();
+    if (!name) {
+      showToast2("Validation Error", "Location name is required.", "error");
+      return;
+    }
+    const rawLat = ui2.form.lat.trim();
+    const rawLng = ui2.form.lng.trim();
+    const lat = rawLat ? parseCoordinate(rawLat) : null;
+    const lng = rawLng ? parseCoordinate(rawLng) : null;
+    if (rawLat && lat === null) {
+      showToast2("Validation Error", "Latitude must contain a decimal number, e.g. 37.7749.", "error");
+      return;
+    }
+    if (rawLng && lng === null) {
+      showToast2("Validation Error", "Longitude must contain a decimal number, e.g. -122.4194.", "error");
+      return;
+    }
+    const radiusValue = radiusRef.current;
+    const address = ui2.form.address.trim();
+    const mode = ui2.modalMode;
+    const siteId = ui2.modalSiteId;
+    void (async () => {
+      try {
+        if (mode === "add") {
+          await createSite({
+            name,
+            address,
+            lat,
+            lng,
+            radiusMeters: radiusValue,
+            status: ui2.form.active ? "active" : "inactive"
+          });
+        } else {
+          const site = sites.find((s) => s.id === siteId);
+          if (!site) throw new Error("This site no longer exists on the server.");
+          const status = ui2.form.active ? "active" : site.status !== "active" ? site.status : "inactive";
+          await updateSite(site.id, { name, address, lat, lng, radiusMeters: radiusValue, status });
+        }
+        const result = await fetchSitesDetailed();
+        if (result.error) {
+          showToast2("Location Saved", `${name} was saved, but reload failed: ${result.error}`);
+          setUi((prev) => ({ ...prev, modalOpen: false }));
+          return;
+        }
+        setSites(result.sites);
+        setUi((prev) => ({ ...prev, modalOpen: false }));
+        showToast2("Location Saved", `${name} was saved to the server.`);
+      } catch (err) {
+        showToast2("Save Failed", err instanceof Error ? err.message : "Unknown error.", "error");
+      }
+    })();
+  };
+  const handleClick = (e) => {
+    stitchClickHandler(e);
+    const target = e.target;
+    const focusEl = target.closest("[data-focus]");
+    focusRef.current = focusEl ? { key: focusEl.getAttribute("data-focus") ?? "", start: null, end: null } : null;
+    const actionEl = target.closest("[data-action]");
+    if (!actionEl) return;
+    const action = actionEl.getAttribute("data-action");
+    const code = actionEl.getAttribute("data-code") ?? "";
+    switch (action) {
+      case "bulk-sync":
+        runBulkSync();
+        break;
+      case "add-site":
+        openAddModal();
+        break;
+      case "view-site":
+        openSiteModal(code, "view");
+        break;
+      case "edit-site":
+        openSiteModal(code, "edit");
+        break;
+      case "toggle-site":
+        toggleSiteStatus(code);
+        break;
+      case "modal-close":
+        setUi((prev) => ({ ...prev, modalOpen: false }));
+        break;
+      case "save-site":
+        saveModal();
+        break;
+      case "radius-preset": {
+        const raw = actionEl.getAttribute("data-radius");
+        if (raw !== null) {
+          const value = Number(raw);
+          if (Number.isFinite(value)) {
+            radiusRef.current = value;
+            applyRadiusDom(e.currentTarget, value);
+          }
+        }
+        break;
+      }
+      case "page-prev":
+      case "page-next":
+      case "page-1":
+      case "page-2": {
+        const pageCount = pageCountOf(filterSites(sites, ui2));
+        const current = Math.min(Math.max(1, ui2.page), pageCount);
+        const targetPage = action === "page-prev" ? current - 1 : action === "page-next" ? current + 1 : action === "page-1" ? 1 : 2;
+        const page = Math.min(Math.max(1, targetPage), pageCount);
+        setUi((prev) => ({ ...prev, page }));
+        break;
+      }
+      case "tab-live":
+        setUi((prev) => ({ ...prev, stateTab: "live" }));
+        break;
+      case "tab-empty":
+        setUi((prev) => ({ ...prev, stateTab: "empty" }));
+        break;
+      case "view-table":
+        setUi((prev) => ({ ...prev, view: "table" }));
+        break;
+      case "view-split":
+        setUi((prev) => ({ ...prev, view: "split" }));
+        break;
+      case "clear-search":
+        setUi((prev) => ({ ...prev, search: "", page: 1 }));
+        break;
+      case "reset-filters":
+        resetFilters();
+        break;
+    }
+  };
+  const handleInput = (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const key = target.getAttribute("data-focus");
+    const isTextInput = target.type === "text";
+    focusRef.current = key ? {
+      key,
+      start: isTextInput ? target.selectionStart : null,
+      end: isTextInput ? target.selectionEnd : null
+    } : null;
+    switch (target.id) {
+      case "radiusRange": {
+        const value = Number(target.value);
+        if (Number.isFinite(value)) {
+          radiusRef.current = value;
+          applyRadiusDom(e.currentTarget, value);
+        }
+        return;
+      }
+      case "searchInput":
+        setUi((prev) => ({ ...prev, search: target.value, page: 1 }));
+        return;
+      case "inputLocName":
+        setUi((prev) => ({ ...prev, form: { ...prev.form, name: target.value } }));
+        return;
+      case "inputAddress":
+        setUi((prev) => ({ ...prev, form: { ...prev.form, address: target.value } }));
+        return;
+      case "inputLat":
+        setUi((prev) => ({ ...prev, form: { ...prev.form, lat: target.value } }));
+        return;
+      case "inputLng":
+        setUi((prev) => ({ ...prev, form: { ...prev.form, lng: target.value } }));
+        return;
+      default:
+        return;
+    }
+  };
+  const handleChange = (e) => {
+    const target = e.target;
+    if (target instanceof HTMLSelectElement) {
+      const key = target.getAttribute("data-focus");
+      focusRef.current = key ? { key, start: null, end: null } : null;
+      if (target.id === "statusFilter") {
+        setUi((prev) => ({ ...prev, statusFilter: target.value, page: 1 }));
+      } else if (target.id === "radiusFilter") {
+        setUi((prev) => ({ ...prev, radiusFilter: target.value, page: 1 }));
+      }
+      return;
+    }
+    if (target instanceof HTMLInputElement && target.id === "activeToggleCheckbox") {
+      setUi((prev) => ({ ...prev, form: { ...prev.form, active: target.checked } }));
+    }
+  };
+  const handleFocus = (e) => {
+    const target = e.target;
+    const key = target instanceof Element ? target.getAttribute("data-focus") : null;
+    focusRef.current = key ? { key, start: null, end: null } : null;
+  };
+  const handleKeyDown = (e) => {
+    if (e.key !== "Enter") return;
+    const target = e.target;
+    if (target instanceof HTMLInputElement && target.closest("#locationForm")) {
+      e.preventDefault();
+    }
+  };
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "div",
     {
+      ref: containerRef,
       className: "w-full h-full overflow-y-auto p-6 stitch-view bg-background font-body-md text-body-md text-on-surface antialiased",
-      onClick: stitchClickHandler,
+      onClick: handleClick,
+      onInput: handleInput,
+      onChange: handleChange,
+      onFocus: handleFocus,
+      onKeyDown: handleKeyDown,
       dangerouslySetInnerHTML: { __html: inner }
     }
   );
@@ -36965,21 +37977,66 @@ const htmlRaw$1 = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><m
     }\r
   }\r
 <\/script></main></body></html>`;
+const REPORT_RANGES = ["today", "week", "month", "q3-2024"];
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WORK_HOURS_MINUTES = 480;
+const DAY_MS = 864e5;
 const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 const fmtShort = (date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const fmtFull = (date) => date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const rangeWindow = (range) => {
+  const now = /* @__PURE__ */ new Date();
+  switch (range) {
+    case "today":
+      return { start: startOfDay(now), end: now };
+    case "week": {
+      const offset = (now.getDay() + 6) % 7;
+      return { start: startOfDay(new Date(now.getTime() - offset * DAY_MS)), end: now };
+    }
+    case "month":
+      return { start: startOfDay(new Date(now.getTime() - 29 * DAY_MS)), end: now };
+    case "q3-2024":
+      return { start: new Date(2024, 6, 1), end: new Date(2024, 8, 30, 23, 59, 59, 999) };
+  }
+};
+const rangeLabelFor = (range, win = rangeWindow(range)) => range === "today" ? fmtFull(win.start) : `${fmtShort(win.start)} – ${fmtShort(win.end)}, ${win.end.getFullYear()}`;
 const weekWindows = () => {
   const now = /* @__PURE__ */ new Date();
   const offset = (now.getDay() + 6) % 7;
-  const thisMonday = startOfDay(new Date(now.getTime() - offset * 864e5));
+  const thisMonday = startOfDay(new Date(now.getTime() - offset * DAY_MS));
   const windows = [];
   for (let i = 3; i >= 0; i -= 1) {
-    const start = new Date(thisMonday.getTime() - i * 7 * 864e5);
-    const end = new Date(start.getTime() + 6 * 864e5);
+    const start = new Date(thisMonday.getTime() - i * 7 * DAY_MS);
+    const end = new Date(start.getTime() + 6 * DAY_MS);
     windows.push({ start, end, index: 4 - i });
   }
   return windows;
+};
+const emptyWeeks = () => weekWindows().map((win) => ({
+  label: `${fmtShort(win.start)} (Wk ${win.index})`,
+  axisLabel: `Week ${win.index} (${fmtShort(win.start)} - ${fmtShort(win.end)})`,
+  present: 0,
+  ratePct: 0,
+  latePct: 0
+}));
+const workdaysInWindow = (win) => {
+  const startT = startOfDay(win.start).getTime();
+  const endT = startOfDay(win.end).getTime();
+  let count = 0;
+  for (let t2 = startT; t2 <= endT; t2 += DAY_MS) {
+    const weekday = new Date(t2).getDay();
+    if (weekday !== 0 && weekday !== 6) count += 1;
+  }
+  return Math.max(count, 1);
+};
+const coveredWeekdays = (win) => {
+  const covered = /* @__PURE__ */ new Set();
+  const startT = startOfDay(win.start).getTime();
+  const endT = startOfDay(win.end).getTime();
+  for (let t2 = startT; t2 <= endT && covered.size < 7; t2 += DAY_MS) {
+    covered.add((new Date(t2).getDay() + 6) % 7);
+  }
+  return covered;
 };
 const classifyStatus = (status) => {
   const text = (status ?? "").toLowerCase();
@@ -37003,16 +38060,45 @@ const emptyData = () => ({
   avgMinutes: null,
   hoursPct: 0,
   overtimeHours: 0,
-  weeks: [],
+  weeks: emptyWeeks(),
   daily: [],
   weeklyAvgPct: 0,
   depts: [],
   donut: { presentPct: 0, latePct: 0, absentPct: 0, leavePct: 0, total: 0 },
-  deptCount: 0,
-  rangeLabel: "—",
   logRows: [],
-  logCounts: { all: 0, late: 0, mismatch: 0 },
   avatarChips: []
+});
+const createEmptyReportData = () => emptyData();
+const NO_DEPARTMENT_VALUES = /* @__PURE__ */ new Set(["", "—", "-", "Unassigned"]);
+const uniqueDepartments = (rows) => {
+  const seen = /* @__PURE__ */ new Set();
+  for (const row of rows) {
+    const name = (row.department ?? "").trim();
+    if (NO_DEPARTMENT_VALUES.has(name)) continue;
+    seen.add(name);
+  }
+  return Array.from(seen).sort((a, b) => a.localeCompare(b));
+};
+const filterLogBase = (rows, filters) => {
+  const dept = filters.dept.trim();
+  const needle = filters.search.trim().toLowerCase();
+  return rows.filter((row) => {
+    if (dept && row.department !== dept) return false;
+    if (!needle) return true;
+    return [row.name, row.empId, row.department, row.siteLabel].some(
+      (field) => field.toLowerCase().includes(needle)
+    );
+  });
+};
+const applyLogTab = (rows, tab) => {
+  if (tab === "flagged") return rows.filter((row) => row.status === "late");
+  if (tab === "geofence") return rows.filter((row) => row.status === "mismatch");
+  return rows;
+};
+const countLogTabs = (base) => ({
+  all: base.length,
+  flagged: base.filter((row) => row.status === "late").length,
+  geofence: base.filter((row) => row.status === "mismatch").length
 });
 const loadEmployees = async () => {
   try {
@@ -37027,14 +38113,14 @@ const loadAttendance = async () => {
   const rows = await supabaseService.getAttendance();
   return Array.isArray(rows) ? rows : [];
 };
-const fetchReportData = async () => {
+const fetchReportData = async (range = "month") => {
   if (!isSupabaseConfigured()) return emptyData();
   const [rawAttendance, employees] = await Promise.all([loadAttendance(), loadEmployees()]);
   const rostered = employees.length;
   const leaveEmployees = employees.filter(
     (employee) => (employee.attendanceStatus ?? employee.attendance_status) === "leave"
   ).length;
-  const windows = weekWindows();
+  const win = rangeWindow(range);
   const inWindow = (iso, start, end) => {
     if (!iso) return false;
     const time = new Date(iso).getTime();
@@ -37042,48 +38128,62 @@ const fetchReportData = async () => {
     const day = startOfDay(new Date(time)).getTime();
     return day >= startOfDay(start).getTime() && day <= startOfDay(end).getTime();
   };
-  const weekStats = windows.map((win) => {
-    const rows = rawAttendance.filter((row) => inWindow(row.clock_in, win.start, win.end));
-    const onTime = rows.filter((row) => classifyStatus(row.status) === "onTime").length;
-    const late = rows.filter((row) => classifyStatus(row.status) === "late").length;
+  const windowRows = rawAttendance.filter((row) => inWindow(row.clock_in, win.start, win.end));
+  const spanDays = Math.round((startOfDay(win.end).getTime() - startOfDay(win.start).getTime()) / DAY_MS) + 1;
+  const prevStart = new Date(startOfDay(win.start).getTime() - spanDays * DAY_MS);
+  const prevEnd = new Date(startOfDay(win.start).getTime() - 1);
+  const previousRows = rawAttendance.filter((row) => inWindow(row.clock_in, prevStart, prevEnd));
+  const split = (rows) => ({
+    onTime: rows.filter((row) => classifyStatus(row.status) === "onTime").length,
+    late: rows.filter((row) => classifyStatus(row.status) === "late").length,
+    absent: rows.filter((row) => classifyStatus(row.status) === "absent").length
+  });
+  const current = split(windowRows);
+  const previous = split(previousRows);
+  const workdays = workdaysInWindow(win);
+  const rateOf = (rows) => pct(rows.length, rostered > 0 ? rostered * workdays : 1);
+  const lateRateOf = (counts) => pct(counts.late, Math.max(counts.late + counts.onTime + counts.absent, 1));
+  const windows = weekWindows();
+  const weekStats = windows.map((item) => {
+    const rows = rawAttendance.filter((row) => inWindow(row.clock_in, item.start, item.end));
+    const counts = split(rows);
     const expected = Math.max(rostered * 5, 1);
     return {
-      win,
+      win: item,
       present: rows.length,
-      onTime,
-      late,
+      onTime: counts.onTime,
+      late: counts.late,
       ratePct: pct(rows.length, rostered > 0 ? expected : 1),
-      latePct: pct(late, Math.max(rows.length, 1)),
-      leavePct: pct(leaveEmployees, Math.max(rostered, 1)),
-      label: `${fmtShort(win.start)} (Wk ${win.index})`,
-      axisLabel: `Week ${win.index} (${fmtShort(win.start)} - ${fmtShort(win.end)})`
+      latePct: pct(counts.late, Math.max(rows.length, 1)),
+      label: `${fmtShort(item.start)} (Wk ${item.index})`,
+      axisLabel: `Week ${item.index} (${fmtShort(item.start)} - ${fmtShort(item.end)})`
     };
   });
-  const newest = weekStats[weekStats.length - 1];
-  const previous = weekStats[weekStats.length - 2] ?? newest;
-  const totalLogged = rawAttendance.filter((row) => inWindow(row.clock_in, windows[0].start, windows[3].end));
-  const overallLate = totalLogged.filter((row) => classifyStatus(row.status) === "late").length;
-  const overallAbsent = totalLogged.filter((row) => classifyStatus(row.status) === "absent").length;
-  const overallOnTime = totalLogged.filter((row) => classifyStatus(row.status) === "onTime").length;
-  const ratePct = pct(totalLogged.length, rostered > 0 ? rostered * 20 : 1);
-  const rateDelta = Math.round((newest.ratePct - previous.ratePct) * 10) / 10;
-  const workdayCount = 5;
-  const presentAvg = Math.round(totalLogged.length / Math.max(workdayCount, 1) * 10) / 10;
-  const capPct = Math.min(100, pct(totalLogged.length, rostered));
+  const ratePct = rateOf(windowRows);
+  const rateDelta = Math.round((ratePct - rateOf(previousRows)) * 10) / 10;
+  const presentAvg = Math.round(windowRows.length / workdays * 10) / 10;
+  const capPct = Math.min(100, pct(windowRows.length, rostered));
   const todayRows = rawAttendance.filter(
     (row) => inWindow(row.clock_in, startOfDay(/* @__PURE__ */ new Date()), /* @__PURE__ */ new Date())
   );
-  const flagged = rawAttendance.filter(
-    (row) => (row.is_inside_geofence === false || String(row.status ?? "").toLowerCase().includes("outside") || String(row.status ?? "").toLowerCase().includes("late")) && inWindow(row.clock_in, windows[0].start, windows[3].end)
+  const flagged = windowRows.filter(
+    (row) => row.is_inside_geofence === false || String(row.status ?? "").toLowerCase().includes("outside") || String(row.status ?? "").toLowerCase().includes("late")
   ).length;
-  const durations = totalLogged.map((row) => row.duration_minutes).filter((minutes) => typeof minutes === "number" && minutes > 0);
+  const durations = windowRows.map((row) => row.duration_minutes).filter((minutes) => typeof minutes === "number" && minutes > 0);
+  const totalOvertimeMinutes = durations.reduce(
+    (sum, value) => sum + Math.max(0, value - WORK_HOURS_MINUTES),
+    0
+  );
   const avgMinutes = durations.length > 0 ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : null;
+  const covered = coveredWeekdays(win);
   const daily = DAY_LABELS.slice(0, 5).map((day, i) => {
-    const weekdayRows = rawAttendance.filter((row) => {
+    if (!covered.has(i)) {
+      return { day, onTime: 0, late: 0, absent: 0, pct: 0 };
+    }
+    const weekdayRows = windowRows.filter((row) => {
       const time = new Date(row.clock_in ?? "").getTime();
       if (Number.isNaN(time)) return false;
-      if ((new Date(time).getDay() + 6) % 7 !== i) return false;
-      return inWindow(row.clock_in, newest.win.start, newest.win.end);
+      return (new Date(time).getDay() + 6) % 7 === i;
     });
     const onTime = weekdayRows.filter((row) => classifyStatus(row.status) === "onTime").length;
     const late = weekdayRows.filter((row) => classifyStatus(row.status) === "late").length;
@@ -37100,27 +38200,24 @@ const fetchReportData = async () => {
   const loggedWeekdays = daily.filter((day) => day.onTime + day.late > 0).length;
   const weeklyAvgPct = loggedWeekdays > 0 ? Math.round(daily.reduce((sum, d) => sum + d.pct, 0) / loggedWeekdays * 10) / 10 : 0;
   const byDept = /* @__PURE__ */ new Map();
-  for (const row of totalLogged) {
+  for (const row of windowRows) {
     const department = row.employees?.department ?? "Unassigned";
     const entry = byDept.get(department) ?? { onTime: 0, total: 0 };
     entry.total += 1;
     if (classifyStatus(row.status) === "onTime") entry.onTime += 1;
     byDept.set(department, entry);
   }
-  const deptEntries = Array.from(byDept.entries()).filter(
-    ([, entry]) => entry.total > 0
-  );
-  const depts = deptEntries.map(([name, entry]) => ({ name, pct: pct(entry.onTime, Math.max(entry.total, 1)) })).filter((item) => item.name !== "Unassigned").sort((a, b) => b.pct - a.pct).slice(0, 5);
-  const totalForDonut = totalLogged.length;
+  const deptEntries = Array.from(byDept.entries()).filter(([, entry]) => entry.total > 0);
+  const depts = deptEntries.map(([name, entry]) => ({ name, pct: pct(entry.onTime, Math.max(entry.total, 1)) })).filter((item) => item.name !== "Unassigned" && item.name !== "—").sort((a, b) => b.pct - a.pct).slice(0, 5);
+  const totalForDonut = windowRows.length;
   const donut = {
-    presentPct: pct(overallOnTime, Math.max(totalForDonut, 1)),
-    latePct: pct(overallLate, Math.max(totalForDonut, 1)),
-    absentPct: pct(overallAbsent, Math.max(totalForDonut, 1)),
+    presentPct: pct(current.onTime, Math.max(totalForDonut, 1)),
+    latePct: pct(current.late, Math.max(totalForDonut, 1)),
+    absentPct: pct(current.absent, Math.max(totalForDonut, 1)),
     leavePct: pct(leaveEmployees, Math.max(rostered, 1)),
     total: totalForDonut
   };
-  const hasData = totalLogged.length > 0;
-  const rangeLabel = hasData && rostered > 0 ? `${fmtShort(windows[0].start)} – ${fmtShort(windows[3].end)}, ${windows[3].end.getFullYear()}` : "—";
+  const hasData = windowRows.length > 0;
   const fmtDate = (iso) => {
     if (!iso) return "—";
     const date = new Date(iso);
@@ -37138,7 +38235,7 @@ const fetchReportData = async () => {
     if (classifyStatus(row.status) === "absent") return "leave";
     return "present";
   };
-  const logRows = rawAttendance.slice(0, 5).map((row) => {
+  const logRows = windowRows.map((row) => {
     const employee = row.employees ?? {};
     const clockIn = row.clock_in ?? null;
     const clockOut = row.clock_out ?? null;
@@ -37169,12 +38266,12 @@ const fetchReportData = async () => {
     presentAvg,
     capPct,
     activeToday: todayRows.length,
-    latePct: pct(overallLate, Math.max(totalLogged.length, 1)),
-    lateDelta: Math.round((newest.latePct - previous.latePct) * 10) / 10,
+    latePct: lateRateOf(current),
+    lateDelta: Math.round((lateRateOf(current) - lateRateOf(previous)) * 10) / 10,
     flagged,
     avgMinutes,
     hoursPct: avgMinutes != null ? Math.round(avgMinutes / WORK_HOURS_MINUTES * 1e3) / 10 : 0,
-    overtimeHours: durations.reduce((sum, value) => sum + Math.max(0, value - WORK_HOURS_MINUTES), 0) / 60 >= 1 ? Math.round(durations.reduce((sum, value) => sum + Math.max(0, value - WORK_HOURS_MINUTES), 0) / 60) : 0,
+    overtimeHours: totalOvertimeMinutes / 60 >= 1 ? Math.round(totalOvertimeMinutes / 60) : 0,
     weeks: weekStats.map((week) => ({
       label: week.label,
       axisLabel: week.axisLabel,
@@ -37186,23 +38283,45 @@ const fetchReportData = async () => {
     weeklyAvgPct,
     depts,
     donut,
-    deptCount: deptEntries.filter(([name]) => name !== "Unassigned").length,
-    rangeLabel,
     logRows,
-    logCounts: {
-      all: rawAttendance.length,
-      late: rawAttendance.filter((row) => classifyStatus(row.status) === "late").length,
-      mismatch: rawAttendance.filter((row) => row.is_inside_geofence === false).length
-    },
     avatarChips: employees.filter((employee) => typeof employee.avatar === "string" && employee.avatar !== "").slice(0, 3).map((employee) => ({ name: employee.name, avatar: employee.avatar }))
   };
 };
+const PAGE_SIZE = 5;
+const PRESET_LABELS = {
+  today: "Today",
+  week: "This Week",
+  month: "This Month",
+  "q3-2024": "Q3 2024"
+};
+const TAB_LABELS = {
+  all: "All Records",
+  flagged: "Flagged Overtime",
+  geofence: "Geofence Mismatch"
+};
+const PRESET_ACTIVE_CLS = "px-3 py-1.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md shadow-sm";
+const PRESET_IDLE_CLS = "px-3 py-1.5 rounded-lg text-on-surface-variant font-label-sm text-label-sm hover:text-on-surface transition-colors";
+const TAB_ACTIVE_CLS = "px-3 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-sm text-label-sm shadow-sm transition-all";
+const TAB_IDLE_CLS = "px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm transition-all";
+const PAGINATION_BLOCK_RE = /<div class="flex items-center gap-1 self-center sm:self-auto">[\s\S]*?<button class="p-2 rounded-lg bg-surface-container text-outline hover:text-on-surface transition-colors" type="button">\s*<span class="material-symbols-outlined text-base leading-none">chevron_right<\/span>\s*<\/button>\s*<\/div>/;
 const fill = (text, tokens) => {
   let out = text;
   for (const [needle, value] of tokens) out = out.split(needle).join(value);
   return out;
 };
 const fmtDelta = (delta) => delta >= 0 ? `+${delta}` : `${delta}`;
+const escapeAttr = (value) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+const addAttrsBeforeTag = (html, tagName, marker, attrs) => {
+  const at = html.indexOf(marker);
+  if (at === -1) return html;
+  const open = html.lastIndexOf(`<${tagName}`, at);
+  if (open === -1) return html;
+  const end = html.indexOf(">", open);
+  if (end === -1) return html;
+  return html.slice(0, end) + attrs + html.slice(end);
+};
+const isReportRange = (value) => value === "today" || value === "week" || value === "month" || value === "q3-2024";
+const isLogTab = (value) => value === "all" || value === "flagged" || value === "geofence";
 const CHART_X = [0, 233.3, 466.7, 700];
 const yFor = (pctValue) => (180 - Math.max(0, Math.min(100, pctValue)) * 1.5).toFixed(1);
 const linePath = (values) => values.map((value, i) => `${i === 0 ? "M" : "L"}${CHART_X[i]},${yFor(value)}`).join(" ");
@@ -37262,9 +38381,9 @@ const deriveLogTemplate = () => {
     /font-numeric-mono text-label-sm font-semibold text-primary">\s*8h 48m\s*</,
     'font-numeric-mono text-label-sm __HRS_CLS__"> __HRS__ <'
   ).replace(
-    /<span class="inline-flex items-center gap-1\.5 px-2\.5 py-0\.5 rounded-full bg-inverse-surface[^>]*>[\s\S]*?<\/span>\s*<\/span>/,
+    /<span class="inline-flex items-center gap-1\.5 px-2\.5 py-0\.5 rounded-full bg-inverse-surface[^>]*>[\s\S]*?<\/span>(?=\s*<\/td>)/,
     "__STATUS__"
-  ).replace('<span class="material-symbols-outlined text-sm text-secondary-container">verified</span>', "__LOC_ICON__").replace('<span class="truncate">HQ Main Lobby • GPS Verified</span>', '<span class="truncate">__SITE__</span>');
+  ).replace('<span class="material-symbols-outlined text-sm text-secondary-container">verified</span>', "__LOC_ICON__").replace('<span class="truncate">HQ Main Lobby • GPS Verified</span>', '<span class="truncate">__SITE__</span>').replace('title="Telemetry Log" type="button"', 'title="Telemetry Log" data-action="row-radar" data-idx="__IDX__" type="button"').replace('title="Audit Slip" type="button"', 'title="Audit Slip" data-action="row-audit" data-idx="__IDX__" type="button"');
 };
 const LOG_TEMPLATE = deriveLogTemplate();
 const avatarBlock = (row) => {
@@ -37273,7 +38392,7 @@ const avatarBlock = (row) => {
   }
   return `<div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-sm text-label-sm shrink-0">${row.initials}</div>`;
 };
-const buildLogRow = (row) => {
+const buildLogRow = (row, index) => {
   const style = STATUS_STYLES[row.status];
   return fill(LOG_TEMPLATE, [
     ["__AVATAR__", avatarBlock(row)],
@@ -37290,7 +38409,8 @@ const buildLogRow = (row) => {
     ["__CI_DOT__", style.inDot],
     ["__STATUS__", statusPill(style)],
     ["__LOC_ICON__", `<span class="material-symbols-outlined text-sm ${style.iconCls || "text-error"}">${style.icon}</span>`],
-    ["__SITE__", row.siteLabel]
+    ["__SITE__", row.siteLabel],
+    ["__IDX__", String(index)]
   ]);
 };
 const EMPTY_LOG_ROW = `<tr><td colspan="10" class="py-10 px-4 text-center font-body-sm text-body-sm text-on-surface-variant">No attendance records logged yet. Check-ins will appear here with GPS verification stamps.</td></tr>`;
@@ -37324,11 +38444,85 @@ const buildDeptRow = (dept, index) => {
 </div>
 </div>`;
 };
-const reportsHtml = (baseInner, data) => {
+const applyPresetState = (html, active) => {
+  let out = html;
+  for (const key of REPORT_RANGES) {
+    const label = PRESET_LABELS[key];
+    const pattern = new RegExp(`<button class="[^"]*" type="button">${label}</button>`);
+    const cls = key === active ? PRESET_ACTIVE_CLS : PRESET_IDLE_CLS;
+    out = out.replace(
+      pattern,
+      `<button class="${cls}" data-action="range" data-range="${key}" type="button">${label}</button>`
+    );
+  }
+  return out;
+};
+const applyTabState = (html, active, counts) => {
+  let out = html;
+  for (const key of Object.keys(TAB_LABELS)) {
+    const pattern = new RegExp(`<button class="[^"]*" id="btn-tab-${key}" type="button">[^<]*</button>`);
+    const cls = key === active ? TAB_ACTIVE_CLS : TAB_IDLE_CLS;
+    out = out.replace(
+      pattern,
+      `<button class="${cls}" id="btn-tab-${key}" data-action="tab" data-tab="${key}" type="button">${TAB_LABELS[key]} (${counts[key]})</button>`
+    );
+  }
+  return out;
+};
+const pageChips = (page, total) => {
+  const wanted = [1, 2, 3, page - 1, page, page + 1, total].filter(
+    (value, index, all) => value >= 1 && value <= total && all.indexOf(value) === index
+  );
+  const nums = wanted.sort((a, b) => a - b);
+  const chips = [];
+  let prev = 0;
+  for (const num of nums) {
+    if (num - prev > 1) {
+      chips.push(`<span class="px-1 text-outline font-numeric-mono">...</span>`);
+    }
+    const cls = num === page ? "w-8 h-8 rounded-lg bg-primary text-on-primary font-numeric-mono text-label-sm font-bold shadow-sm" : "w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-variant text-on-surface font-numeric-mono text-label-sm transition-colors";
+    chips.push(`<button class="${cls}" data-action="page" data-page="${num}" type="button">${num}</button>`);
+    prev = num;
+  }
+  return chips.join("\n");
+};
+const buildPagination = (page, total) => {
+  const navCls = "p-2 rounded-lg bg-surface-container text-outline hover:text-on-surface disabled:opacity-40 transition-colors";
+  const nextCls = "p-2 rounded-lg bg-surface-container text-outline hover:text-on-surface transition-colors";
+  return `<div class="flex items-center gap-1 self-center sm:self-auto">
+<button class="${navCls}" data-action="page-prev"${page <= 1 ? ' disabled=""' : ""} type="button">
+<span class="material-symbols-outlined text-base leading-none">chevron_left</span>
+</button>
+` + pageChips(page, total) + `
+<button class="${nextCls}" data-action="page-next" type="button">
+<span class="material-symbols-outlined text-base leading-none">chevron_right</span>
+</button>
+</div>`;
+};
+const toExportRows = (rows) => rows.map((row) => ({
+  Name: row.name,
+  Email: row.email,
+  "Employee ID": row.empId,
+  Department: row.department,
+  Date: row.dateLabel,
+  Shift: row.shiftLabel,
+  "Check-In": row.checkInLabel,
+  "Check-Out": row.checkOutLabel,
+  "Working Hours": row.hoursLabel,
+  Status: STATUS_STYLES[row.status].label,
+  Location: row.siteLabel
+}));
+const reportsHtml = (baseInner, data, ui2) => {
   if (!baseInner) return "";
   let html = baseInner;
-  html = html.replace("Oct 1 – Oct 28, 2024", data.rangeLabel);
-  html = html.replace("All Departments (5)", `All Departments (${data.deptCount})`);
+  html = applyPresetState(html, ui2.range);
+  html = html.replace("Oct 1 – Oct 28, 2024", rangeLabelFor(ui2.range));
+  html = addAttrsBeforeTag(html, "button", ">calendar_today</span>", ' data-action="range-cycle"');
+  html = html.replace("All Departments (5)", ui2.deptLabel);
+  html = addAttrsBeforeTag(html, "button", ">corporate_fare</span>", ' data-action="dept-cycle"');
+  html = addAttrsBeforeTag(html, "button", ">picture_as_pdf</span>", ' data-action="print"');
+  html = addAttrsBeforeTag(html, "button", ">table_view</span>", ' data-action="csv"');
+  html = addAttrsBeforeTag(html, "button", ">Export XLSX Audit</span>", ' data-action="xlsx"');
   html = html.replace(
     'stroke-dasharray="94.6, 100"',
     `stroke-dasharray="${data.ratePct}, 100"`
@@ -37413,6 +38607,8 @@ const reportsHtml = (baseInner, data) => {
     html = html.replace('<circle cx="460" cy="40"', '<circle cx="-40" cy="-40"');
     html = html.replace('<circle cx="460" cy="158"', '<circle cx="-40" cy="-40"');
     html = html.replace("left-[64%] top-[14%]", "left-[-999px]");
+    html = html.replace(">Oct 21 (Wk 4)<", ">—<");
+    html = html.replace(/124 Present • 96\.8%/, "—");
   }
   const C2 = 282.74;
   const br = data.donut;
@@ -37453,85 +38649,269 @@ const reportsHtml = (baseInner, data) => {
     "Top Performer: Field Logistics (+3.4% YoY)",
     data.depts.length > 0 ? `Top Performer: ${data.depts[0].name}` : "Top Performer: —"
   );
+  html = addAttrsBeforeTag(html, "button", "View Escalations", ' data-action="escalations"');
+  html = addAttrsBeforeTag(
+    html,
+    "input",
+    'placeholder="Filter by employee, ID, or zone..."',
+    ` data-focus="logsearch" value="${escapeAttr(ui2.search)}"`
+  );
+  html = applyTabState(html, ui2.tab, ui2.tabCounts);
   {
     const tbodyStart = html.indexOf('<tbody class="divide-y-0');
     const tbodyOpenEnd = html.indexOf(">", tbodyStart);
     const tbodyEnd = html.indexOf("</tbody>", tbodyStart);
     if (tbodyStart !== -1 && tbodyOpenEnd !== -1 && tbodyEnd !== -1) {
-      const rows = data.logRows.length > 0 ? data.logRows.map(buildLogRow).join("\n") : EMPTY_LOG_ROW;
+      const rows = ui2.pageRows.length > 0 ? ui2.pageRows.map((row, i) => buildLogRow(row, (ui2.page - 1) * PAGE_SIZE + i)).join("\n") : EMPTY_LOG_ROW;
       html = html.slice(0, tbodyOpenEnd + 1) + rows + html.slice(tbodyEnd);
     }
   }
-  html = html.replace("All Records (128)", `All Records (${data.logCounts.all})`);
-  html = html.replace("Flagged Overtime (4)", `Flagged Overtime (${data.logCounts.late})`);
-  html = html.replace("Geofence Mismatch (1)", `Geofence Mismatch (${data.logCounts.mismatch})`);
-  html = html.replace(
-    /Showing <strong class="text-on-surface">1 - 5<\/strong> of <strong class="text-on-surface">128<\/strong> total logs/,
-    `Showing <strong class="text-on-surface">1 - ${Math.max(1, Math.min(data.logRows.length, 5))}</strong> of <strong class="text-on-surface">${data.logCounts.all}</strong> total logs`
-  );
-  if (data.logCounts.all <= 5) {
+  if (ui2.showEmptyState) {
     html = html.replace(
-      /<div class="flex items-center gap-1 self-center sm:self-auto">[\s\S]*?<button class="p-2 rounded-lg bg-surface-container text-outline hover:text-on-surface transition-colors" type="button">\s*<span class="material-symbols-outlined text-base leading-none">chevron_right<\/span>\s*<\/button>\s*<\/div>/,
-      ""
+      '<div class="w-full overflow-x-auto" id="table-view">',
+      '<div class="hidden w-full overflow-x-auto" id="table-view">'
+    );
+    html = html.replace(
+      '<div class="hidden flex-col items-center justify-center py-16 text-center" id="empty-state-view">',
+      '<div class="flex flex-col items-center justify-center py-16 text-center" id="empty-state-view">'
     );
   }
+  html = addAttrsBeforeTag(html, "button", "Reset Telemetry Filters", ' data-action="reset-filters"');
+  const from = ui2.filteredCount === 0 ? 0 : (ui2.page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(ui2.page * PAGE_SIZE, ui2.filteredCount);
+  html = html.replace(
+    'Showing <strong class="text-on-surface">1 - 5</strong> of <strong class="text-on-surface">128</strong> total logs',
+    `Showing <strong class="text-on-surface">${from} - ${to}</strong> of <strong class="text-on-surface">${ui2.filteredCount}</strong> total logs`
+  );
+  html = html.replace(
+    PAGINATION_BLOCK_RE,
+    ui2.totalPages > 1 ? buildPagination(ui2.page, ui2.totalPages) : ""
+  );
   return html;
 };
 const ReportsView = () => {
   const [data, setData] = reactExports.useState(null);
+  const [range, setRange] = reactExports.useState("month");
+  const [filters, setFilters] = reactExports.useState({ tab: "all", dept: "", search: "" });
+  const [page, setPage] = reactExports.useState(1);
+  const [toast, setToast] = reactExports.useState(null);
+  const wrapperRef = reactExports.useRef(null);
+  const focusRef = reactExports.useRef(null);
+  const [scrollTick, setScrollTick] = reactExports.useState(0);
+  const scrolledTick = reactExports.useRef(0);
+  const toastTimer2 = reactExports.useRef(null);
   const baseInner = reactExports.useMemo(() => prepareStitchHtml(extractBodyInner(htmlRaw$1)), []);
+  const rows = data?.logRows ?? [];
+  const deptOptions = reactExports.useMemo(() => uniqueDepartments(rows), [rows]);
+  const baseRows = reactExports.useMemo(() => filterLogBase(rows, filters), [rows, filters.dept, filters.search]);
+  const tabCounts = reactExports.useMemo(() => countLogTabs(baseRows), [baseRows]);
+  const filteredRows = reactExports.useMemo(() => applyLogTab(baseRows, filters.tab), [baseRows, filters.tab]);
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const pageClamped = Math.min(page, totalPages);
+  const pageRows = reactExports.useMemo(
+    () => filteredRows.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE),
+    [filteredRows, pageClamped]
+  );
+  const showEmptyState = filters.tab !== "all" && filteredRows.length === 0;
+  const deptLabel = filters.dept === "" ? `All Departments (${deptOptions.length})` : `${filters.dept} (${rows.filter((row) => row.department === filters.dept).length})`;
   const inner = reactExports.useMemo(
-    () => reportsHtml(baseInner, data ?? emptyReportData()),
-    [baseInner, data]
+    () => reportsHtml(baseInner, data ?? createEmptyReportData(), {
+      range,
+      deptLabel,
+      tab: filters.tab,
+      search: filters.search,
+      page: pageClamped,
+      totalPages,
+      filteredCount: filteredRows.length,
+      tabCounts,
+      pageRows,
+      showEmptyState
+    }),
+    [
+      baseInner,
+      data,
+      range,
+      deptLabel,
+      filters,
+      pageClamped,
+      totalPages,
+      filteredRows,
+      tabCounts,
+      pageRows,
+      showEmptyState
+    ]
   );
   reactExports.useEffect(() => {
     let subscribed = true;
-    void fetchReportData().then((report) => {
+    void fetchReportData(range).then((report) => {
       if (subscribed) setData(report);
     });
     return () => {
       subscribed = false;
     };
-  }, []);
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    "div",
-    {
-      className: "w-full h-full overflow-y-auto p-6 stitch-view bg-background font-body-md text-body-md text-on-surface antialiased",
-      onClick: stitchClickHandler,
-      dangerouslySetInnerHTML: { __html: inner }
+  }, [range]);
+  reactExports.useEffect(() => {
+    if (filters.dept && !deptOptions.includes(filters.dept)) {
+      setFilters((current) => ({ ...current, dept: "" }));
+      setPage(1);
     }
+  }, [deptOptions, filters.dept]);
+  reactExports.useEffect(() => {
+    const key = focusRef.current;
+    if (!key) return;
+    const el2 = wrapperRef.current?.querySelector(`[data-focus="${key}"]`);
+    if (!el2 || document.activeElement === el2) return;
+    el2.focus();
+    el2.setSelectionRange(el2.value.length, el2.value.length);
+  }, [inner]);
+  reactExports.useEffect(() => {
+    if (scrollTick === scrolledTick.current) return;
+    scrolledTick.current = scrollTick;
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+    const table = wrapper.querySelector("#table-view");
+    const empty = wrapper.querySelector("#empty-state-view");
+    const target = table && !table.classList.contains("hidden") ? table : empty;
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [inner, scrollTick]);
+  reactExports.useEffect(
+    () => () => {
+      if (toastTimer2.current !== null) window.clearTimeout(toastTimer2.current);
+    },
+    []
   );
+  const showToast2 = (icon, message) => {
+    setToast({ icon, message });
+    if (toastTimer2.current !== null) window.clearTimeout(toastTimer2.current);
+    toastTimer2.current = window.setTimeout(() => setToast(null), 4e3);
+  };
+  const handleAction = (el2) => {
+    const action = el2.dataset.action;
+    switch (action) {
+      case "range": {
+        const key = el2.dataset.range;
+        if (isReportRange(key)) {
+          setRange(key);
+          setPage(1);
+        }
+        break;
+      }
+      case "range-cycle": {
+        const index = REPORT_RANGES.indexOf(range);
+        const next = REPORT_RANGES[(index + 1) % REPORT_RANGES.length];
+        setRange(next);
+        setPage(1);
+        showToast2("calendar_today", `Date range preset: ${PRESET_LABELS[next]}`);
+        break;
+      }
+      case "dept-cycle": {
+        const options = ["", ...deptOptions];
+        const index = options.indexOf(filters.dept);
+        const next = options[(index + 1) % options.length];
+        setFilters((current) => ({ ...current, dept: next }));
+        setPage(1);
+        showToast2(
+          "corporate_fare",
+          next === "" ? `Department filter cleared — showing all ${deptOptions.length} department(s)` : `Department filter: ${next}`
+        );
+        break;
+      }
+      case "print":
+        window.print();
+        break;
+      case "csv": {
+        const filename = downloadCsv("geoattend-attendance-log", toExportRows(filteredRows));
+        showToast2("table_view", `Exported ${filteredRows.length} record(s) → ${filename}`);
+        break;
+      }
+      case "xlsx": {
+        const filename = downloadXls("geoattend-attendance-audit", toExportRows(filteredRows));
+        showToast2("download", `Audit workbook exported → ${filename}`);
+        break;
+      }
+      case "escalations":
+        setFilters((current) => ({ ...current, tab: "flagged" }));
+        setPage(1);
+        setScrollTick((current) => current + 1);
+        break;
+      case "tab": {
+        const key = el2.dataset.tab;
+        if (isLogTab(key)) {
+          setFilters((current) => ({ ...current, tab: key }));
+          setPage(1);
+        }
+        break;
+      }
+      case "reset-filters":
+        setFilters({ tab: "all", dept: "", search: "" });
+        setPage(1);
+        showToast2("filter_alt_off", "Telemetry filters reset");
+        break;
+      case "page": {
+        const target = Number(el2.dataset.page);
+        if (Number.isInteger(target) && target >= 1 && target <= totalPages) setPage(target);
+        break;
+      }
+      case "page-prev":
+        setPage((current) => Math.max(1, current - 1));
+        break;
+      case "page-next":
+        setPage((current) => Math.min(totalPages, current + 1));
+        break;
+      case "row-radar":
+      case "row-audit": {
+        const row = filteredRows[Number(el2.dataset.idx)];
+        if (!row) break;
+        setFilters((current) => ({ ...current, search: row.empId }));
+        setPage(1);
+        focusRef.current = "logsearch";
+        if (action === "row-radar") {
+          showToast2(
+            "radar",
+            `${row.name} (${row.empId}) — in ${row.checkInLabel}, out ${row.checkOutLabel}, ${STATUS_STYLES[row.status].label}`
+          );
+        } else {
+          showToast2(
+            "description",
+            `${row.dateLabel} — ${row.department}, ${row.hoursLabel}, ${row.siteLabel}`
+          );
+        }
+        break;
+      }
+    }
+  };
+  const handleClick = (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) focusRef.current = null;
+    const actionEl = target.closest("[data-action]");
+    if (actionEl && wrapperRef.current?.contains(actionEl)) handleAction(actionEl);
+    stitchClickHandler(e);
+  };
+  const handleInput = (e) => {
+    const target = e.target;
+    if (!target || target.getAttribute("data-focus") !== "logsearch") return;
+    focusRef.current = "logsearch";
+    const value = target.value;
+    setPage(1);
+    setFilters((current) => current.search === value ? current : { ...current, search: value });
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    toast && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "toast-notice", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "material-symbols-outlined icon-md", style: { color: "var(--color-tertiary-fixed)" }, children: toast.icon }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: toast.message })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "div",
+      {
+        ref: wrapperRef,
+        className: "w-full h-full overflow-y-auto p-6 stitch-view bg-background font-body-md text-body-md text-on-surface antialiased",
+        onClick: handleClick,
+        onInput: handleInput,
+        dangerouslySetInnerHTML: { __html: inner }
+      }
+    )
+  ] });
 };
-const emptyReportData = () => ({
-  hasData: false,
-  rostered: 0,
-  ratePct: 0,
-  rateDelta: 0,
-  presentAvg: 0,
-  capPct: 0,
-  activeToday: 0,
-  latePct: 0,
-  lateDelta: 0,
-  flagged: 0,
-  avgMinutes: null,
-  hoursPct: 0,
-  overtimeHours: 0,
-  weeks: [
-    { label: "—", axisLabel: "Week 1", present: 0, ratePct: 0, latePct: 0 },
-    { label: "—", axisLabel: "Week 2", present: 0, ratePct: 0, latePct: 0 },
-    { label: "—", axisLabel: "Week 3", present: 0, ratePct: 0, latePct: 0 },
-    { label: "—", axisLabel: "Week 4", present: 0, ratePct: 0, latePct: 0 }
-  ],
-  daily: [],
-  weeklyAvgPct: 0,
-  depts: [],
-  donut: { presentPct: 0, latePct: 0, absentPct: 0, leavePct: 0, total: 0 },
-  deptCount: 0,
-  rangeLabel: "—",
-  logRows: [],
-  logCounts: { all: 0, late: 0, mismatch: 0 },
-  avatarChips: []
-});
 const htmlRaw = `<!DOCTYPE html>\r
 \r
 <html lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>\r
@@ -38232,6 +39612,41 @@ const htmlRaw = `<!DOCTYPE html>\r
     }, 3800);\r
   }\r
 <\/script></main></body></html>`;
+const STORAGE_KEY = "geoattend.systemSettings.v1";
+const isSettingsValues = (parsed) => {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+  return Object.values(parsed).every(
+    (value) => typeof value === "string" || typeof value === "boolean"
+  );
+};
+const localStorageStore = {
+  load() {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return isSettingsValues(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  },
+  save(values) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  reset() {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+    }
+  }
+};
+const loadSettings = () => localStorageStore.load();
+const saveSettings = (values) => localStorageStore.save(values);
 const neutralize = (html) => html.replace("Enterprise Cluster A-1", "Workspace Cluster").replace(">2024.10.4-EE</span>", ">&mdash;</span>").replace("ENFORCED (SYNCED)", "ENFORCED (DEFAULT)").replace(
   /e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/,
   "Pending first telemetry sync"
@@ -38239,29 +39654,491 @@ const neutralize = (html) => html.replace("Enterprise Cluster A-1", "Workspace C
   "System policies last saved today at 09:14 AM by <strong>sarah.jenkins</strong>",
   "System policies not saved yet in this workspace"
 ).replace(/<span class="inline-flex items-center gap-1 px-2\.5 py-1 rounded-md[^>]*>\s*sarah\.jenkins@vanguard\.io[\s\S]*?<\/span>/g, "").replace(/<span class="inline-flex items-center gap-1 px-2\.5 py-1 rounded-md[^>]*>\s*ops-leads@vanguard\.io[\s\S]*?<\/span>/g, "").replace(/<span class="inline-flex items-center gap-1 px-2\.5 py-1 rounded-md[^>]*>\s*compliance-audit@vanguard\.io[\s\S]*?<\/span>/g, "");
+const escapeHtml = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const tagOnce = (html, needle, attrs) => {
+  if (!html.includes(needle)) return html;
+  const replacement = needle.endsWith(">") ? `${needle.slice(0, -1)}${attrs}>` : `${needle}${attrs}`;
+  return html.replace(needle, replacement);
+};
+const tagAll = (html, needle, attrs) => html.split(needle).join(`${needle}${attrs}`);
+const tagOccurrences = (html, needle, attrs) => {
+  const parts = html.split(needle);
+  if (parts.length - 1 !== attrs.length) return html;
+  let out = "";
+  for (let i = 0; i < parts.length; i += 1) {
+    out += parts[i];
+    if (i < parts.length - 1) out += `${needle}${attrs[i]}`;
+  }
+  return out;
+};
+const tagControls = (html) => {
+  let out = html;
+  out = tagOccurrences(out, "<select", [
+    ' data-setting="timezone"',
+    ' data-setting="dateFormat"',
+    ' data-setting="language"',
+    ' data-setting="autoClockout"',
+    ' data-setting="sessionTimeout"'
+  ]);
+  out = tagOccurrences(out, '<input checked="" class="sr-only peer" type="checkbox"', [
+    ' data-setting="overtimePreAuth"',
+    ' data-setting="antiSpoofing"',
+    ' data-setting="clockInAlerts"',
+    ' data-setting="breachSms"'
+  ]);
+  out = tagOnce(out, 'id="org-name"', ' data-setting="orgName"');
+  out = tagOnce(out, 'id="shift-start"', ' data-setting="shiftStart"');
+  out = tagOnce(out, 'type="time" value="17:00"', ' data-setting="shiftEnd"');
+  out = tagOnce(out, 'id="grace-period"', ' data-setting="gracePeriod"');
+  out = tagOnce(out, 'id="gps-accuracy-slider"', ' data-setting="gpsAccuracy"');
+  out = tagOnce(out, 'id="geofence-radius"', ' data-setting="geofenceRadius"');
+  out = tagOnce(out, '<img class="w-full h-full object-cover"', ' data-setting="logo"');
+  out = tagOnce(
+    out,
+    '<tbody class="divide-y divide-surface-container/50 font-body-md text-body-md text-on-surface">',
+    ' data-setting="roles"'
+  );
+  out = tagOnce(
+    out,
+    '<div class="flex flex-wrap gap-2 p-2 rounded-lg bg-surface-container-lowest shadow-sm items-center">',
+    ' data-setting="recipients"'
+  );
+  out = tagAll(
+    out,
+    '<span class="font-label-md text-label-md font-semibold text-on-surface"',
+    ' data-role-name=""'
+  );
+  out = tagOnce(
+    out,
+    'class="absolute inset-0 bg-inverse-surface/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-on-primary transition-opacity gap-1"',
+    ' data-action="upload-logo"'
+  );
+  out = tagOnce(
+    out,
+    'class="px-3 py-1.5 rounded-lg bg-primary text-on-primary font-label-md text-label-md shadow-sm hover:bg-primary-container transition-colors"',
+    ' data-action="upload-logo"'
+  );
+  out = tagOnce(
+    out,
+    'class="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors"',
+    ' data-action="restore-logo"'
+  );
+  out = tagOnce(
+    out,
+    'class="h-11 px-4 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors"',
+    ' data-action="recalculate"'
+  );
+  out = tagOnce(
+    out,
+    'class="px-3.5 py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors flex items-center gap-1.5"',
+    ' data-action="create-role"'
+  );
+  out = tagAll(out, 'title="Edit Permissions"', ' data-action="edit-role"');
+  out = tagAll(out, '<button class="hover:text-error text-outline"', ' data-action="remove-recipient"');
+  out = tagOnce(out, 'id="save-btn"', ' data-action="save"');
+  out = tagOnce(
+    out,
+    'class="px-4 py-2 rounded-lg bg-surface-container text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors"',
+    ' data-action="reset-defaults"'
+  );
+  out = tagOnce(
+    out,
+    'class="px-4 py-2 rounded-lg bg-surface-container text-on-surface-variant font-label-md text-label-md hover:bg-surface-container-high transition-colors"',
+    ' data-action="cancel"'
+  );
+  out = out.replace(
+    /<span class="inline-flex items-center gap-1 px-2\.5 py-1 rounded-md bg-surface-container text-on-surface font-numeric-mono text-label-sm">([\s\S]*?)</g,
+    (_match, body) => {
+      const email = body.trim();
+      if (!email) return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface-container text-on-surface font-numeric-mono text-label-sm">${body}<`;
+      return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface-container text-on-surface font-numeric-mono text-label-sm" data-recipient="${escapeHtml(email)}">${body}<`;
+    }
+  );
+  out = tagOnce(out, '<span class="font-numeric-mono font-semibold text-on-surface">', ' data-live="coverage"');
+  out = tagOnce(
+    out,
+    'class="font-body-sm text-body-sm text-on-surface-variant hidden sm:inline"',
+    ' data-live="save-status"'
+  );
+  return out;
+};
+const PREPARED = prepareStitchHtml(extractBodyInner(htmlRaw));
+const TAGGED = tagControls(PREPARED);
+const CHIP_TEMPLATE = (() => {
+  const match = TAGGED.match(
+    /<span class="inline-flex items-center gap-1 px-2\.5 py-1 rounded-md bg-surface-container text-on-surface font-numeric-mono text-label-sm"[\s\S]*?<\/button>\s*<\/span>/
+  );
+  if (!match) return "";
+  const email = match[0].match(/data-recipient="([^"]+)"/)?.[1];
+  if (!email) return "";
+  return match[0].split(email).join("__EMAIL__");
+})();
+const ROLE_TEMPLATE = (() => {
+  const tbodyStart = TAGGED.indexOf("<tbody");
+  const tbodyEnd = TAGGED.indexOf("</tbody>", tbodyStart);
+  if (tbodyStart === -1 || tbodyEnd === -1) return "";
+  const row = TAGGED.slice(tbodyStart, tbodyEnd).match(/<tr[\s\S]*?<\/tr>/)?.[0] ?? "";
+  if (!row) return "";
+  return row.replace(">Super Administrator<", ">__ROLE_NAME__<").replace("Root authority, system-wide overrides", "Custom operator-defined role").replace(">4 active<", ">0 active<").replace("Full Control &amp; Overwrite", "Custom Scope").replace("Unrestricted Export + Cryptographic Audit", "Operator-defined policy");
+})();
+const INNER = neutralize(TAGGED);
+const MAX_LOGO_BYTES = 500 * 1024;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SQ_KM_TO_ACRES = 247.105;
+const DEFAULT_TOAST_TITLE = "Configuration Published";
+const DEFAULT_TOAST_MESSAGE = "Over-the-air sync initiated.";
+const formatClock = (date) => date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+let toastTimer = null;
+const showToast = (root, title, message) => {
+  const toast = root.querySelector("#save-toast");
+  if (!toast) return;
+  const titleEl = toast.querySelector(".font-label-md");
+  const messageEl = toast.querySelector(".font-body-sm");
+  if (titleEl) titleEl.textContent = title;
+  if (messageEl) messageEl.textContent = message;
+  toast.classList.remove("translate-y-10", "opacity-0", "pointer-events-none");
+  toast.classList.add("translate-y-0", "opacity-100");
+  if (toastTimer !== null) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.add("translate-y-10", "opacity-0", "pointer-events-none");
+    toast.classList.remove("translate-y-0", "opacity-100");
+    toastTimer = null;
+  }, 3800);
+};
+const collectRoleNames = (tbody) => Array.from(tbody.querySelectorAll("tr")).map((row) => row.querySelector("[data-role-name]")?.textContent?.trim() ?? "").filter((name) => name.length > 0);
+const collectRecipients = (container) => Array.from(container.querySelectorAll("[data-recipient]")).map((chip) => chip.getAttribute("data-recipient") ?? "").filter((email) => email.length > 0);
+const collectSettings = (root, defaultLogo) => {
+  const values = {};
+  root.querySelectorAll("[data-setting]").forEach((el2) => {
+    const key = el2.getAttribute("data-setting");
+    if (!key) return;
+    if (el2 instanceof HTMLInputElement) {
+      values[key] = el2.type === "checkbox" ? el2.checked : el2.value;
+    } else if (el2 instanceof HTMLSelectElement) {
+      values[key] = el2.value;
+    } else if (el2 instanceof HTMLTableSectionElement) {
+      values[key] = JSON.stringify(collectRoleNames(el2));
+    } else if (el2 instanceof HTMLDivElement) {
+      values[key] = JSON.stringify(collectRecipients(el2));
+    } else if (el2 instanceof HTMLImageElement) {
+      const src = el2.getAttribute("src") ?? "";
+      values[key] = src === defaultLogo ? "" : src;
+    }
+  });
+  return values;
+};
+const parseStringList = (value) => {
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item) => typeof item === "string");
+  } catch {
+    return [];
+  }
+};
+const applyRoleNames = (tbody, names) => {
+  if (names.length === 0 || !ROLE_TEMPLATE) return;
+  let rows = Array.from(tbody.querySelectorAll("tr"));
+  while (rows.length > names.length) {
+    const last = rows[rows.length - 1];
+    if (!last) break;
+    last.remove();
+    rows = rows.slice(0, -1);
+  }
+  while (rows.length < names.length) {
+    const html = ROLE_TEMPLATE.split("__ROLE_NAME__").join(escapeHtml(names[rows.length] ?? ""));
+    tbody.insertAdjacentHTML("beforeend", html);
+    const next = Array.from(tbody.querySelectorAll("tr"));
+    if (next.length <= rows.length) break;
+    rows = next;
+  }
+  rows.forEach((row, index) => {
+    const name = names[index];
+    if (name === void 0) return;
+    const span = row.querySelector("[data-role-name]");
+    if (span) span.textContent = name;
+  });
+};
+const applyRecipients = (container, emails) => {
+  container.querySelectorAll("[data-recipient]").forEach((chip) => chip.remove());
+  const input = container.querySelector("#exec-emails");
+  if (!input || !CHIP_TEMPLATE) return;
+  emails.forEach((email) => {
+    input.insertAdjacentHTML("beforebegin", CHIP_TEMPLATE.split("__EMAIL__").join(escapeHtml(email)));
+  });
+};
+const applySettings = (root, values, defaultLogo) => {
+  root.querySelectorAll("[data-setting]").forEach((el2) => {
+    const key = el2.getAttribute("data-setting");
+    if (!key) return;
+    const value = values[key];
+    if (value === void 0) return;
+    if (el2 instanceof HTMLInputElement) {
+      if (el2.type === "checkbox") el2.checked = value === true || value === "true";
+      else el2.value = String(value);
+    } else if (el2 instanceof HTMLSelectElement) {
+      const next = String(value);
+      const matched = Array.from(el2.options).some((option) => option.value === next);
+      if (matched) el2.value = next;
+    } else if (el2 instanceof HTMLTableSectionElement) {
+      applyRoleNames(el2, parseStringList(value));
+    } else if (el2 instanceof HTMLDivElement) {
+      applyRecipients(el2, parseStringList(value));
+    } else if (el2 instanceof HTMLImageElement) {
+      const src = typeof value === "string" && value.length > 0 ? value : defaultLogo;
+      if (src) el2.setAttribute("src", src);
+    }
+  });
+};
+const recalculateCoverage = (root) => {
+  const slider = root.querySelector("#gps-accuracy-slider");
+  const accuracy = root.querySelector("#accuracy-val");
+  if (slider && accuracy) accuracy.textContent = `${slider.value}m`;
+  const radiusInput = root.querySelector("#geofence-radius");
+  const coverage = root.querySelector('[data-live="coverage"]');
+  const radius = Number(radiusInput?.value);
+  if (!radiusInput || !coverage || !Number.isFinite(radius) || radius <= 0) {
+    showToast(root, "Recalculate", "Enter a geofence radius greater than zero.");
+    return;
+  }
+  const areaSqKm = Math.PI * radius * radius / 1e6;
+  const areaLabel = areaSqKm.toFixed(3);
+  const acres = (Number(areaLabel) * SQ_KM_TO_ACRES).toFixed(1);
+  coverage.textContent = `~${areaLabel} km² (~${acres} acres)`;
+};
+const openLogoPicker = (root) => {
+  const picker = document.createElement("input");
+  picker.type = "file";
+  picker.accept = "image/*";
+  picker.style.display = "none";
+  picker.addEventListener("change", () => {
+    const file = picker.files && picker.files[0];
+    picker.remove();
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast(root, "Upload rejected", "Only image files can be used as the logo.");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      showToast(
+        root,
+        "Upload rejected",
+        `The file is ${Math.round(file.size / 1024)} KB; the limit is 500 KB.`
+      );
+      return;
+    }
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      const logo = root.querySelector('[data-setting="logo"]');
+      if (logo && typeof reader.result === "string") logo.setAttribute("src", reader.result);
+    });
+    reader.addEventListener("error", () => {
+      showToast(root, "Upload rejected", "The selected file could not be read.");
+    });
+    reader.readAsDataURL(file);
+  });
+  document.body.appendChild(picker);
+  picker.click();
+};
+const createCustomRole = (root) => {
+  const entered = window.prompt("Role name for the new custom role");
+  if (entered === null) return;
+  const name = entered.trim();
+  if (!name) {
+    showToast(root, "Role not created", "Enter a name for the role.");
+    return;
+  }
+  const tbody = root.querySelector("tbody");
+  if (!tbody || !ROLE_TEMPLATE) return;
+  tbody.insertAdjacentHTML("beforeend", ROLE_TEMPLATE.split("__ROLE_NAME__").join(escapeHtml(name)));
+};
+const editRoleName = (actionEl) => {
+  const row = actionEl.closest("tr");
+  const span = row?.querySelector("[data-role-name]");
+  if (!span) return;
+  const current = span.textContent?.trim() ?? "";
+  const entered = window.prompt("Role name", current);
+  if (entered === null) return;
+  const name = entered.trim();
+  if (!name || name === current) return;
+  span.textContent = name;
+};
+const saveConfiguration = (root, defaultLogo, toastDefaults) => {
+  const values = collectSettings(root, defaultLogo);
+  if (!saveSettings(values)) {
+    showToast(root, "Save failed", "The browser rejected the settings write; nothing was stored.");
+    return;
+  }
+  const status = root.querySelector('[data-live="save-status"]');
+  if (status) status.textContent = `System policies saved at ${formatClock(/* @__PURE__ */ new Date())}`;
+  showToast(root, toastDefaults.title, toastDefaults.message);
+};
 const SettingsView = () => {
-  const inner = reactExports.useMemo(() => neutralize(prepareStitchHtml(extractBodyInner(htmlRaw))), []);
+  const wrapperRef = reactExports.useRef(null);
+  const defaultsRef = reactExports.useRef(null);
+  const defaultLogoRef = reactExports.useRef("");
+  const toastDefaultsRef = reactExports.useRef({ title: DEFAULT_TOAST_TITLE, message: DEFAULT_TOAST_MESSAGE });
+  const inner = reactExports.useMemo(() => INNER, []);
+  reactExports.useEffect(() => {
+    const root = wrapperRef.current;
+    if (!root) return;
+    if (defaultsRef.current) return;
+    const logo = root.querySelector('[data-setting="logo"]');
+    defaultLogoRef.current = logo?.getAttribute("src") ?? "";
+    const toast = root.querySelector("#save-toast");
+    toastDefaultsRef.current = {
+      title: toast?.querySelector(".font-label-md")?.textContent ?? DEFAULT_TOAST_TITLE,
+      message: toast?.querySelector(".font-body-sm")?.textContent ?? DEFAULT_TOAST_MESSAGE
+    };
+    defaultsRef.current = collectSettings(root, defaultLogoRef.current);
+    const stored = loadSettings();
+    if (stored) applySettings(root, stored, defaultLogoRef.current);
+  }, []);
+  const runAction = (root, action, actionEl) => {
+    switch (action) {
+      case "upload-logo":
+        openLogoPicker(root);
+        break;
+      case "restore-logo": {
+        const logo = root.querySelector('[data-setting="logo"]');
+        if (logo && defaultLogoRef.current) logo.setAttribute("src", defaultLogoRef.current);
+        break;
+      }
+      case "recalculate":
+        recalculateCoverage(root);
+        break;
+      case "create-role":
+        createCustomRole(root);
+        break;
+      case "edit-role":
+        editRoleName(actionEl);
+        break;
+      case "remove-recipient": {
+        const chip = actionEl.closest("[data-recipient]");
+        if (chip) chip.remove();
+        break;
+      }
+      case "reset-defaults":
+        if (defaultsRef.current) applySettings(root, defaultsRef.current, defaultLogoRef.current);
+        break;
+      case "cancel": {
+        const source = loadSettings() ?? defaultsRef.current;
+        if (source) applySettings(root, source, defaultLogoRef.current);
+        break;
+      }
+      case "save":
+        saveConfiguration(root, defaultLogoRef.current, toastDefaultsRef.current);
+        break;
+    }
+  };
+  const handleClick = (e) => {
+    const root = wrapperRef.current;
+    const target = e.target;
+    const actionEl = target.closest("[data-action]");
+    if (root && actionEl) {
+      const action = actionEl.getAttribute("data-action");
+      if (action) runAction(root, action, actionEl);
+    }
+    stitchClickHandler(e);
+  };
+  const handleInput = (e) => {
+    const target = e.target;
+    if (target.id !== "gps-accuracy-slider") return;
+    const label = e.currentTarget.querySelector("#accuracy-val");
+    if (label) label.textContent = `${target.value}m`;
+  };
+  const handleKeyDown = (e) => {
+    if (e.key !== "Enter") return;
+    const target = e.target;
+    if (target.id !== "exec-emails") return;
+    e.preventDefault();
+    const input = target;
+    const email = input.value.trim();
+    if (!email) return;
+    const root = wrapperRef.current;
+    if (!root) return;
+    if (!EMAIL_PATTERN.test(email)) {
+      showToast(root, "Recipient not added", "Enter a valid email address.");
+      return;
+    }
+    const container = input.parentElement;
+    if (!container || !CHIP_TEMPLATE) return;
+    const existing = collectRecipients(container);
+    if (existing.includes(email)) {
+      showToast(root, "Recipient not added", "That address is already on the list.");
+      input.value = "";
+      return;
+    }
+    container.insertAdjacentHTML(
+      "beforebegin",
+      CHIP_TEMPLATE.split("__EMAIL__").join(escapeHtml(email))
+    );
+    input.value = "";
+  };
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "div",
     {
+      ref: wrapperRef,
       className: "w-full h-full overflow-y-auto p-6 stitch-view bg-background font-body-md text-body-md text-on-surface antialiased",
-      onClick: stitchClickHandler,
+      onClick: handleClick,
+      onInput: handleInput,
+      onKeyDown: handleKeyDown,
       dangerouslySetInnerHTML: { __html: inner }
     }
   );
 };
 const App = () => {
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(AppShell, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(Routes, { children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/dashboard", replace: true }) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/dashboard", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Dashboard, {}) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/live-monitoring", element: /* @__PURE__ */ jsxRuntimeExports.jsx(LiveMonitoring, {}) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/employees", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Employees, {}) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/attendance", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Attendance, {}) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/location", element: /* @__PURE__ */ jsxRuntimeExports.jsx(LocationView, {}) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/reports", element: /* @__PURE__ */ jsxRuntimeExports.jsx(ReportsView, {}) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/settings", element: /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsView, {}) }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "*", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/dashboard", replace: true }) })
-  ] }) });
+  const [status, setStatus] = reactExports.useState("idle");
+  reactExports.useEffect(() => {
+    const runSupabaseCheck = async () => {
+      if (!window.supabaseBridge) {
+        console.warn("[Supabase] IPC bridge not ready yet");
+        return;
+      }
+      try {
+        const result = await window.supabaseBridge.testConnection();
+        console.log("[Supabase] Connection test:", result);
+        setStatus(result.success ? "connected" : "failed");
+      } catch (error) {
+        console.error("[Supabase] Connection test failed:", error);
+        setStatus("failed");
+      }
+    };
+    window.__debugSupabaseCheck = runSupabaseCheck;
+    void runSupabaseCheck();
+  }, []);
+  const handleLoadEmployees = async () => {
+    if (!window.supabaseBridge) return;
+    try {
+      const result = await window.supabaseBridge.getEmployees();
+      console.log("[Supabase] Employees:", result);
+      setStatus(result.success ? "employees-loaded" : "failed");
+    } catch (error) {
+      console.error("[Supabase] Load employees failed:", error);
+      setStatus("failed");
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(AppShell, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 12, padding: 12, alignItems: "center" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: handleLoadEmployees, children: "Load Employees" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+        "Status: ",
+        status
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Routes, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/dashboard", replace: true }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/dashboard", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Dashboard, {}) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/live-monitoring", element: /* @__PURE__ */ jsxRuntimeExports.jsx(LiveMonitoring, {}) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/employees", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Employees, {}) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/attendance", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Attendance, {}) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/location", element: /* @__PURE__ */ jsxRuntimeExports.jsx(LocationView, {}) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/reports", element: /* @__PURE__ */ jsxRuntimeExports.jsx(ReportsView, {}) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "/settings", element: /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsView, {}) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(Route, { path: "*", element: /* @__PURE__ */ jsxRuntimeExports.jsx(Navigate, { to: "/dashboard", replace: true }) })
+    ] })
+  ] });
 };
 client.createRoot(document.getElementById("root")).render(
   /* @__PURE__ */ jsxRuntimeExports.jsx(React.StrictMode, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(HashRouter, { children: /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}) }) })

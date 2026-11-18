@@ -1,13 +1,57 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import htmlRaw from '../assets/reports_attendance_analytics_workforce_performance/code.html?raw'
 import { extractBodyInner, prepareStitchHtml, stitchClickHandler } from './stitchUtils'
 import {
   fetchReportData,
+  rangeLabelFor,
+  filterLogBase,
+  applyLogTab,
+  countLogTabs,
+  uniqueDepartments,
+  createEmptyReportData,
+  REPORT_RANGES,
   type ReportData,
   type LogRow,
   type DailyBreak,
-  type DeptRank
+  type DeptRank,
+  type ReportRange,
+  type LogTab,
+  type LogFilters
 } from '../services/reportService'
+import { downloadCsv, downloadXls, type ExportRow } from '../services/exportService'
+
+/* ------------------------------------------------------------------ */
+/* Constants                                                           */
+/* ------------------------------------------------------------------ */
+
+const PAGE_SIZE = 5
+
+const PRESET_LABELS: Record<ReportRange, string> = {
+  today: 'Today',
+  week: 'This Week',
+  month: 'This Month',
+  'q3-2024': 'Q3 2024'
+}
+
+const TAB_LABELS: Record<LogTab, string> = {
+  all: 'All Records',
+  flagged: 'Flagged Overtime',
+  geofence: 'Geofence Mismatch'
+}
+
+/* Class strings below are copied verbatim from the asset markup so the
+   active/inactive state swap never introduces a new visual style. */
+const PRESET_ACTIVE_CLS =
+  'px-3 py-1.5 rounded-lg bg-primary-container text-on-primary font-label-md text-label-md shadow-sm'
+const PRESET_IDLE_CLS =
+  'px-3 py-1.5 rounded-lg text-on-surface-variant font-label-sm text-label-sm hover:text-on-surface transition-colors'
+const TAB_ACTIVE_CLS =
+  'px-3 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface font-label-sm text-label-sm shadow-sm transition-all'
+const TAB_IDLE_CLS =
+  'px-3 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface font-label-sm text-label-sm transition-all'
+
+const PAGINATION_BLOCK_RE =
+  /<div class="flex items-center gap-1 self-center sm:self-auto">[\s\S]*?<button class="p-2 rounded-lg bg-surface-container text-outline hover:text-on-surface transition-colors" type="button">\s*<span class="material-symbols-outlined text-base leading-none">chevron_right<\/span>\s*<\/button>\s*<\/div>/
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -21,6 +65,34 @@ const fill = (text: string, tokens: Array<[string, string]>): string => {
 }
 
 const fmtDelta = (delta: number): string => (delta >= 0 ? `+${delta}` : `${delta}`)
+
+const escapeAttr = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
+
+/**
+ * Insert attributes into the opening tag that precedes a unique text marker.
+ * Used to attach `data-action` handlers without rewriting any class.
+ */
+const addAttrsBeforeTag = (
+  html: string,
+  tagName: string,
+  marker: string,
+  attrs: string
+): string => {
+  const at = html.indexOf(marker)
+  if (at === -1) return html
+  const open = html.lastIndexOf(`<${tagName}`, at)
+  if (open === -1) return html
+  const end = html.indexOf('>', open)
+  if (end === -1) return html
+  return html.slice(0, end) + attrs + html.slice(end)
+}
+
+const isReportRange = (value: string | undefined): value is ReportRange =>
+  value === 'today' || value === 'week' || value === 'month' || value === 'q3-2024'
+
+const isLogTab = (value: string | undefined): value is LogTab =>
+  value === 'all' || value === 'flagged' || value === 'geofence'
 
 /* ------------------------------------------------------------------ */
 /* Trend chart geometry (viewBox 700x220, y: 180 → 30 equals 0 → 100%) */
@@ -119,11 +191,13 @@ const deriveLogTemplate = (): string => {
     .replace(/font-numeric-mono text-label-sm font-semibold text-primary">\s*8h 48m\s*</,
       'font-numeric-mono text-label-sm __HRS_CLS__"> __HRS__ <')
     .replace(
-      /<span class="inline-flex items-center gap-1\.5 px-2\.5 py-0\.5 rounded-full bg-inverse-surface[^>]*>[\s\S]*?<\/span>\s*<\/span>/,
+      /<span class="inline-flex items-center gap-1\.5 px-2\.5 py-0\.5 rounded-full bg-inverse-surface[^>]*>[\s\S]*?<\/span>(?=\s*<\/td>)/,
       '__STATUS__'
     )
     .replace('<span class="material-symbols-outlined text-sm text-secondary-container">verified</span>', '__LOC_ICON__')
     .replace('<span class="truncate">HQ Main Lobby • GPS Verified</span>', '<span class="truncate">__SITE__</span>')
+    .replace('title="Telemetry Log" type="button"', 'title="Telemetry Log" data-action="row-radar" data-idx="__IDX__" type="button"')
+    .replace('title="Audit Slip" type="button"', 'title="Audit Slip" data-action="row-audit" data-idx="__IDX__" type="button"')
 }
 
 const LOG_TEMPLATE = deriveLogTemplate()
@@ -135,7 +209,7 @@ const avatarBlock = (row: LogRow): string => {
   return `<div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-sm text-label-sm shrink-0">${row.initials}</div>`
 }
 
-const buildLogRow = (row: LogRow): string => {
+const buildLogRow = (row: LogRow, index: number): string => {
   const style = STATUS_STYLES[row.status]
   return fill(LOG_TEMPLATE, [
     ['__AVATAR__', avatarBlock(row)],
@@ -152,7 +226,8 @@ const buildLogRow = (row: LogRow): string => {
     ['__CI_DOT__', style.inDot],
     ['__STATUS__', statusPill(style)],
     ['__LOC_ICON__', `<span class="material-symbols-outlined text-sm ${style.iconCls || 'text-error'}">${style.icon}</span>`],
-    ['__SITE__', row.siteLabel]
+    ['__SITE__', row.siteLabel],
+    ['__IDX__', String(index)]
   ])
 }
 
@@ -212,16 +287,123 @@ const buildDeptRow = (dept: DeptRank, index: number): string => {
 }
 
 /* ------------------------------------------------------------------ */
+/* Toolbar / tab state injection                                       */
+/* ------------------------------------------------------------------ */
+
+/** Move the active pill between the four range presets. */
+const applyPresetState = (html: string, active: ReportRange): string => {
+  let out = html
+  for (const key of REPORT_RANGES) {
+    const label = PRESET_LABELS[key]
+    const pattern = new RegExp(`<button class="[^"]*" type="button">${label}</button>`)
+    const cls = key === active ? PRESET_ACTIVE_CLS : PRESET_IDLE_CLS
+    out = out.replace(
+      pattern,
+      `<button class="${cls}" data-action="range" data-range="${key}" type="button">${label}</button>`
+    )
+  }
+  return out
+}
+
+/** Rebuild the three status tabs: active pill, live counts and data attrs. */
+const applyTabState = (html: string, active: LogTab, counts: Record<LogTab, number>): string => {
+  let out = html
+  for (const key of Object.keys(TAB_LABELS) as LogTab[]) {
+    const pattern = new RegExp(`<button class="[^"]*" id="btn-tab-${key}" type="button">[^<]*</button>`)
+    const cls = key === active ? TAB_ACTIVE_CLS : TAB_IDLE_CLS
+    out = out.replace(
+      pattern,
+      `<button class="${cls}" id="btn-tab-${key}" data-action="tab" data-tab="${key}" type="button">` +
+        `${TAB_LABELS[key]} (${counts[key]})</button>`
+    )
+  }
+  return out
+}
+
+/** Page number chips: `1 2 3 … 26`, current page highlighted. */
+const pageChips = (page: number, total: number): string => {
+  const wanted = [1, 2, 3, page - 1, page, page + 1, total].filter(
+    (value, index, all) => value >= 1 && value <= total && all.indexOf(value) === index
+  )
+  const nums = wanted.sort((a, b) => a - b)
+  const chips: string[] = []
+  let prev = 0
+  for (const num of nums) {
+    if (num - prev > 1) {
+      chips.push(`<span class="px-1 text-outline font-numeric-mono">...</span>`)
+    }
+    const cls =
+      num === page
+        ? 'w-8 h-8 rounded-lg bg-primary text-on-primary font-numeric-mono text-label-sm font-bold shadow-sm'
+        : 'w-8 h-8 rounded-lg bg-surface-container hover:bg-surface-variant text-on-surface font-numeric-mono text-label-sm transition-colors'
+    chips.push(`<button class="${cls}" data-action="page" data-page="${num}" type="button">${num}</button>`)
+    prev = num
+  }
+  return chips.join('\n')
+}
+
+const buildPagination = (page: number, total: number): string => {
+  const navCls = 'p-2 rounded-lg bg-surface-container text-outline hover:text-on-surface disabled:opacity-40 transition-colors'
+  const nextCls = 'p-2 rounded-lg bg-surface-container text-outline hover:text-on-surface transition-colors'
+  return (
+    `<div class="flex items-center gap-1 self-center sm:self-auto">\n` +
+    `<button class="${navCls}" data-action="page-prev"${page <= 1 ? ' disabled=""' : ''} type="button">\n` +
+    `<span class="material-symbols-outlined text-base leading-none">chevron_left</span>\n</button>\n` +
+    pageChips(page, total) +
+    `\n<button class="${nextCls}" data-action="page-next" type="button">\n` +
+    `<span class="material-symbols-outlined text-base leading-none">chevron_right</span>\n</button>\n</div>`
+  )
+}
+
+/** Columns written by the CSV / XLS audit exports. */
+const toExportRows = (rows: LogRow[]): ExportRow[] =>
+  rows.map((row) => ({
+    Name: row.name,
+    Email: row.email,
+    'Employee ID': row.empId,
+    Department: row.department,
+    Date: row.dateLabel,
+    Shift: row.shiftLabel,
+    'Check-In': row.checkInLabel,
+    'Check-Out': row.checkOutLabel,
+    'Working Hours': row.hoursLabel,
+    Status: STATUS_STYLES[row.status].label,
+    Location: row.siteLabel
+  }))
+
+/* ------------------------------------------------------------------ */
 /* Whole-page builder                                                  */
 /* ------------------------------------------------------------------ */
 
-const reportsHtml = (baseInner: string, data: ReportData): string => {
+interface ReportsUi {
+  range: ReportRange
+  deptLabel: string
+  tab: LogTab
+  search: string
+  page: number
+  totalPages: number
+  filteredCount: number
+  tabCounts: Record<LogTab, number>
+  pageRows: LogRow[]
+  /** True when a status tab has no matching rows → show the asset empty state. */
+  showEmptyState: boolean
+}
+
+const reportsHtml = (baseInner: string, data: ReportData, ui: ReportsUi): string => {
   if (!baseInner) return ''
   let html = baseInner
 
-  /* --- Toolbar --- */
-  html = html.replace('Oct 1 \u2013 Oct 28, 2024', data.rangeLabel)
-  html = html.replace('All Departments (5)', `All Departments (${data.deptCount})`)
+  /* --- Toolbar: preset pills, range label, calendar & department --- */
+  html = applyPresetState(html, ui.range)
+  html = html.replace('Oct 1 \u2013 Oct 28, 2024', rangeLabelFor(ui.range))
+  html = addAttrsBeforeTag(html, 'button', '>calendar_today</span>', ' data-action="range-cycle"')
+  html = html.replace('All Departments (5)', ui.deptLabel)
+  html = addAttrsBeforeTag(html, 'button', '>corporate_fare</span>', ' data-action="dept-cycle"')
+
+  /* --- Export suite --- */
+  html = addAttrsBeforeTag(html, 'button', '>picture_as_pdf</span>', ' data-action="print"')
+  html = addAttrsBeforeTag(html, 'button', '>table_view</span>', ' data-action="csv"')
+  html = addAttrsBeforeTag(html, 'button', '>Export XLSX Audit</span>', ' data-action="xlsx"')
 
   /* --- KPI 1: attendance rate --- */
   html = html.replace(
@@ -273,7 +455,7 @@ const reportsHtml = (baseInner: string, data: ReportData): string => {
   html = html.replace('Overtime logged: 34h total', `Overtime logged: ${data.overtimeHours}h total`)
   html = html.replace(/>\s*102\.8%\s*</, `> ${data.hoursPct}% <`)
 
-  /* --- Trend chart module --- */
+  /* --- Trend chart module (fixed four-week window, per its caption) --- */
   html = html.replace('during October', 'during the last 4 weeks')
   const presentSeries = data.weeks.map((week) => week.ratePct)
   const lateSeries = data.weeks.map((week) => week.latePct)
@@ -305,7 +487,7 @@ const reportsHtml = (baseInner: string, data: ReportData): string => {
     `d="${data.hasData ? linePath(useLeave) : ''}"`
   )
 
-  /* Week axis labels */
+  /* Week axis labels — always derived from real dates, never the asset dummy. */
   const axisLabels = ['Week 1 (Oct 1 - Oct 7)', 'Week 2 (Oct 8 - Oct 14)', 'Week 3 (Oct 15 - Oct 21)', 'Week 4 (Oct 22 - Oct 28)']
   axisLabels.forEach((label, i) => {
     const replacement = data.weeks[i]?.axisLabel ?? label
@@ -325,6 +507,9 @@ const reportsHtml = (baseInner: string, data: ReportData): string => {
     html = html.replace('<circle cx="460" cy="40"', '<circle cx="-40" cy="-40"')
     html = html.replace('<circle cx="460" cy="158"', '<circle cx="-40" cy="-40"')
     html = html.replace('left-[64%] top-[14%]', 'left-[-999px]')
+    /* The badge is off-screen, but never leave a fabricated date visible. */
+    html = html.replace('>Oct 21 (Wk 4)<', '>—<')
+    html = html.replace(/124 Present • 96\.8%/, '—')
   }
 
   /* --- Donut module --- */
@@ -375,93 +560,323 @@ const reportsHtml = (baseInner: string, data: ReportData): string => {
     'Top Performer: Field Logistics (+3.4% YoY)',
     data.depts.length > 0 ? `Top Performer: ${data.depts[0].name}` : 'Top Performer: —'
   )
+  html = addAttrsBeforeTag(html, 'button', 'View Escalations', ' data-action="escalations"')
 
-  /* --- Attendance log table --- */
+  /* --- Attendance log: search box, tabs, rows, empty state, pagination --- */
+  html = addAttrsBeforeTag(
+    html,
+    'input',
+    'placeholder="Filter by employee, ID, or zone..."',
+    ` data-focus="logsearch" value="${escapeAttr(ui.search)}"`
+  )
+  html = applyTabState(html, ui.tab, ui.tabCounts)
   {
     const tbodyStart = html.indexOf('<tbody class="divide-y-0')
     const tbodyOpenEnd = html.indexOf('>', tbodyStart)
     const tbodyEnd = html.indexOf('</tbody>', tbodyStart)
     if (tbodyStart !== -1 && tbodyOpenEnd !== -1 && tbodyEnd !== -1) {
-      const rows = data.logRows.length > 0 ? data.logRows.map(buildLogRow).join('\n') : EMPTY_LOG_ROW
+      const rows =
+        ui.pageRows.length > 0
+          ? ui.pageRows
+              .map((row, i) => buildLogRow(row, (ui.page - 1) * PAGE_SIZE + i))
+              .join('\n')
+          : EMPTY_LOG_ROW
       html = html.slice(0, tbodyOpenEnd + 1) + rows + html.slice(tbodyEnd)
     }
   }
-  html = html.replace('All Records (128)', `All Records (${data.logCounts.all})`)
-  html = html.replace('Flagged Overtime (4)', `Flagged Overtime (${data.logCounts.late})`)
-  html = html.replace('Geofence Mismatch (1)', `Geofence Mismatch (${data.logCounts.mismatch})`)
 
-  /* Log table pagination — drop the page chips when everything is one page */
-  html = html.replace(
-    /Showing <strong class="text-on-surface">1 - 5<\/strong> of <strong class="text-on-surface">128<\/strong> total logs/,
-    `Showing <strong class="text-on-surface">1 - ${Math.max(1, Math.min(data.logRows.length, 5))}</strong> of <strong class="text-on-surface">${data.logCounts.all}</strong> total logs`
-  )
-  if (data.logCounts.all <= 5) {
+  if (ui.showEmptyState) {
     html = html.replace(
-      /<div class="flex items-center gap-1 self-center sm:self-auto">[\s\S]*?<button class="p-2 rounded-lg bg-surface-container text-outline hover:text-on-surface transition-colors" type="button">\s*<span class="material-symbols-outlined text-base leading-none">chevron_right<\/span>\s*<\/button>\s*<\/div>/,
-      ''
+      '<div class="w-full overflow-x-auto" id="table-view">',
+      '<div class="hidden w-full overflow-x-auto" id="table-view">'
+    )
+    html = html.replace(
+      '<div class="hidden flex-col items-center justify-center py-16 text-center" id="empty-state-view">',
+      '<div class="flex flex-col items-center justify-center py-16 text-center" id="empty-state-view">'
     )
   }
+  html = addAttrsBeforeTag(html, 'button', 'Reset Telemetry Filters', ' data-action="reset-filters"')
+
+  /* Log table pagination footer */
+  const from = ui.filteredCount === 0 ? 0 : (ui.page - 1) * PAGE_SIZE + 1
+  const to = Math.min(ui.page * PAGE_SIZE, ui.filteredCount)
+  html = html.replace(
+    'Showing <strong class="text-on-surface">1 - 5</strong> of <strong class="text-on-surface">128</strong> total logs',
+    `Showing <strong class="text-on-surface">${from} - ${to}</strong> of <strong class="text-on-surface">${ui.filteredCount}</strong> total logs`
+  )
+  html = html.replace(
+    PAGINATION_BLOCK_RE,
+    ui.totalPages > 1 ? buildPagination(ui.page, ui.totalPages) : ''
+  )
 
   return html
 }
 
+/* ------------------------------------------------------------------ */
+/* View                                                                */
+/* ------------------------------------------------------------------ */
+
+interface ToastState {
+  icon: string
+  message: string
+}
+
 const ReportsView: React.FC = () => {
   const [data, setData] = useState<ReportData | null>(null)
+  const [range, setRange] = useState<ReportRange>('month')
+  const [filters, setFilters] = useState<LogFilters>({ tab: 'all', dept: '', search: '' })
+  const [page, setPage] = useState(1)
+  const [toast, setToast] = useState<ToastState | null>(null)
+
+  const wrapperRef = useRef<HTMLDivElement>(null)
+  /** `data-focus` key of the input that was being typed into, restored after rebuild. */
+  const focusRef = useRef<string | null>(null)
+  const [scrollTick, setScrollTick] = useState(0)
+  const scrolledTick = useRef(0)
+  const toastTimer = useRef<number | null>(null)
+
   const baseInner = useMemo(() => prepareStitchHtml(extractBodyInner(htmlRaw)), [])
+
+  /* --- Derived log-table state --- */
+  const rows = data?.logRows ?? []
+  const deptOptions = useMemo(() => uniqueDepartments(rows), [rows])
+  const baseRows = useMemo(() => filterLogBase(rows, filters), [rows, filters.dept, filters.search])
+  const tabCounts = useMemo(() => countLogTabs(baseRows), [baseRows])
+  const filteredRows = useMemo(() => applyLogTab(baseRows, filters.tab), [baseRows, filters.tab])
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
+  const pageClamped = Math.min(page, totalPages)
+  const pageRows = useMemo(
+    () => filteredRows.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE),
+    [filteredRows, pageClamped]
+  )
+  const showEmptyState = filters.tab !== 'all' && filteredRows.length === 0
+  const deptLabel =
+    filters.dept === ''
+      ? `All Departments (${deptOptions.length})`
+      : `${filters.dept} (${rows.filter((row) => row.department === filters.dept).length})`
+
   const inner = useMemo(
-    () => reportsHtml(baseInner, data ?? emptyReportData()),
-    [baseInner, data]
+    () =>
+      reportsHtml(baseInner, data ?? createEmptyReportData(), {
+        range,
+        deptLabel,
+        tab: filters.tab,
+        search: filters.search,
+        page: pageClamped,
+        totalPages,
+        filteredCount: filteredRows.length,
+        tabCounts,
+        pageRows,
+        showEmptyState
+      }),
+    [
+      baseInner,
+      data,
+      range,
+      deptLabel,
+      filters,
+      pageClamped,
+      totalPages,
+      filteredRows,
+      tabCounts,
+      pageRows,
+      showEmptyState
+    ]
   )
 
+  /* --- Data loading --- */
   useEffect(() => {
     let subscribed = true
-    void fetchReportData().then((report) => {
+    void fetchReportData(range).then((report) => {
       if (subscribed) setData(report)
     })
     return () => {
       subscribed = false
     }
-  }, [])
+  }, [range])
+
+  /* A department that leaves the window (range change) falls back to "All". */
+  useEffect(() => {
+    if (filters.dept && !deptOptions.includes(filters.dept)) {
+      setFilters((current) => ({ ...current, dept: '' }))
+      setPage(1)
+    }
+  }, [deptOptions, filters.dept])
+
+  /* --- Search input focus survives the full innerHTML rebuild --- */
+  useEffect(() => {
+    const key = focusRef.current
+    if (!key) return
+    const el = wrapperRef.current?.querySelector<HTMLInputElement>(`[data-focus="${key}"]`)
+    if (!el || document.activeElement === el) return
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  }, [inner])
+
+  /* --- Deferred scroll after "View Escalations" --- */
+  useEffect(() => {
+    if (scrollTick === scrolledTick.current) return
+    scrolledTick.current = scrollTick
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    const table = wrapper.querySelector<HTMLElement>('#table-view')
+    const empty = wrapper.querySelector<HTMLElement>('#empty-state-view')
+    const target = table && !table.classList.contains('hidden') ? table : empty
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [inner, scrollTick])
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
+    },
+    []
+  )
+
+  const showToast = (icon: string, message: string): void => {
+    setToast({ icon, message })
+    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(null), 4000)
+  }
+
+  const handleAction = (el: HTMLElement): void => {
+    const action = el.dataset.action
+    switch (action) {
+      case 'range': {
+        const key = el.dataset.range
+        if (isReportRange(key)) {
+          setRange(key)
+          setPage(1)
+        }
+        break
+      }
+      case 'range-cycle': {
+        const index = REPORT_RANGES.indexOf(range)
+        const next = REPORT_RANGES[(index + 1) % REPORT_RANGES.length]
+        setRange(next)
+        setPage(1)
+        showToast('calendar_today', `Date range preset: ${PRESET_LABELS[next]}`)
+        break
+      }
+      case 'dept-cycle': {
+        const options = ['', ...deptOptions]
+        const index = options.indexOf(filters.dept)
+        const next = options[(index + 1) % options.length]
+        setFilters((current) => ({ ...current, dept: next }))
+        setPage(1)
+        showToast(
+          'corporate_fare',
+          next === ''
+            ? `Department filter cleared — showing all ${deptOptions.length} department(s)`
+            : `Department filter: ${next}`
+        )
+        break
+      }
+      case 'print':
+        window.print()
+        break
+      case 'csv': {
+        const filename = downloadCsv('geoattend-attendance-log', toExportRows(filteredRows))
+        showToast('table_view', `Exported ${filteredRows.length} record(s) → ${filename}`)
+        break
+      }
+      case 'xlsx': {
+        const filename = downloadXls('geoattend-attendance-audit', toExportRows(filteredRows))
+        showToast('download', `Audit workbook exported → ${filename}`)
+        break
+      }
+      case 'escalations':
+        setFilters((current) => ({ ...current, tab: 'flagged' }))
+        setPage(1)
+        setScrollTick((current) => current + 1)
+        break
+      case 'tab': {
+        const key = el.dataset.tab
+        if (isLogTab(key)) {
+          setFilters((current) => ({ ...current, tab: key }))
+          setPage(1)
+        }
+        break
+      }
+      case 'reset-filters':
+        setFilters({ tab: 'all', dept: '', search: '' })
+        setPage(1)
+        showToast('filter_alt_off', 'Telemetry filters reset')
+        break
+      case 'page': {
+        const target = Number(el.dataset.page)
+        if (Number.isInteger(target) && target >= 1 && target <= totalPages) setPage(target)
+        break
+      }
+      case 'page-prev':
+        setPage((current) => Math.max(1, current - 1))
+        break
+      case 'page-next':
+        setPage((current) => Math.min(totalPages, current + 1))
+        break
+      case 'row-radar':
+      case 'row-audit': {
+        const row = filteredRows[Number(el.dataset.idx)]
+        if (!row) break
+        setFilters((current) => ({ ...current, search: row.empId }))
+        setPage(1)
+        /* Keep the caret in the search box once the DOM is rebuilt. */
+        focusRef.current = 'logsearch'
+        if (action === 'row-radar') {
+          showToast(
+            'radar',
+            `${row.name} (${row.empId}) — in ${row.checkInLabel}, out ${row.checkOutLabel}, ` +
+              `${STATUS_STYLES[row.status].label}`
+          )
+        } else {
+          showToast(
+            'description',
+            `${row.dateLabel} — ${row.department}, ${row.hoursLabel}, ${row.siteLabel}`
+          )
+        }
+        break
+      }
+      default:
+        break
+    }
+  }
+
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
+    const target = e.target as HTMLElement
+    /* Leaving the search box means the next rebuild should not steal focus back. */
+    if (!(target instanceof HTMLInputElement)) focusRef.current = null
+    const actionEl = target.closest<HTMLElement>('[data-action]')
+    if (actionEl && wrapperRef.current?.contains(actionEl)) handleAction(actionEl)
+    stitchClickHandler(e)
+  }
+
+  const handleInput = (e: React.FormEvent<HTMLDivElement>): void => {
+    const target = e.target as HTMLInputElement | null
+    if (!target || target.getAttribute('data-focus') !== 'logsearch') return
+    focusRef.current = 'logsearch'
+    const value = target.value
+    setPage(1)
+    setFilters((current) => (current.search === value ? current : { ...current, search: value }))
+  }
 
   return (
-    <div
-      className="w-full h-full overflow-y-auto p-6 stitch-view bg-background font-body-md text-body-md text-on-surface antialiased"
-      onClick={stitchClickHandler}
-      dangerouslySetInnerHTML={{ __html: inner }}
-    />
+    <>
+      {toast && (
+        <div className="toast-notice">
+          <span className="material-symbols-outlined icon-md" style={{ color: 'var(--color-tertiary-fixed)' }}>
+            {toast.icon}
+          </span>
+          <span>{toast.message}</span>
+        </div>
+      )}
+      <div
+        ref={wrapperRef}
+        className="w-full h-full overflow-y-auto p-6 stitch-view bg-background font-body-md text-body-md text-on-surface antialiased"
+        onClick={handleClick}
+        onInput={handleInput}
+        dangerouslySetInnerHTML={{ __html: inner }}
+      />
+    </>
   )
 }
-
-/** Safe placeholder while the first query is in flight. */
-const emptyReportData = (): ReportData => ({
-  hasData: false,
-  rostered: 0,
-  ratePct: 0,
-  rateDelta: 0,
-  presentAvg: 0,
-  capPct: 0,
-  activeToday: 0,
-  latePct: 0,
-  lateDelta: 0,
-  flagged: 0,
-  avgMinutes: null,
-  hoursPct: 0,
-  overtimeHours: 0,
-  weeks: [
-    { label: '—', axisLabel: 'Week 1', present: 0, ratePct: 0, latePct: 0 },
-    { label: '—', axisLabel: 'Week 2', present: 0, ratePct: 0, latePct: 0 },
-    { label: '—', axisLabel: 'Week 3', present: 0, ratePct: 0, latePct: 0 },
-    { label: '—', axisLabel: 'Week 4', present: 0, ratePct: 0, latePct: 0 }
-  ],
-  daily: [],
-  weeklyAvgPct: 0,
-  depts: [],
-  donut: { presentPct: 0, latePct: 0, absentPct: 0, leavePct: 0, total: 0 },
-  deptCount: 0,
-  rangeLabel: '—',
-  logRows: [],
-  logCounts: { all: 0, late: 0, mismatch: 0 },
-  avatarChips: []
-})
 
 export default ReportsView

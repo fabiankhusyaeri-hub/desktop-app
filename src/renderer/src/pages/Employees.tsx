@@ -63,7 +63,7 @@ const Employees: React.FC = () => {
   const [newEmpEmail, setNewEmpEmail] = useState('')
   const [newEmpDept, setNewEmpDept] = useState('IT Engineering')
   const [newEmpRole, setNewEmpRole] = useState('')
-  const [newEmpZone, setNewEmpZone] = useState('HQ Central Hub')
+  const [newEmpZone, setNewEmpZone] = useState('Kolam Renang Tirta Mulya')
   const [formError, setFormError] = useState<string | null>(null)
 
   const showToast = (msg: string) => {
@@ -100,7 +100,7 @@ const Employees: React.FC = () => {
     setNewEmpEmail('')
     setNewEmpDept('IT Engineering')
     setNewEmpRole('')
-    setNewEmpZone('HQ Central Hub')
+    setNewEmpZone('Kolam Renang Tirta Mulya')
     setFormError(null)
     setShowAddModal(true)
   }
@@ -415,9 +415,9 @@ const Employees: React.FC = () => {
               onChange={(e) => setZoneFilter(e.target.value)}
             >
               <option>All Geofence Zones</option>
-              <option>HQ Central Hub</option>
               <option>South Hub</option>
               <option>Field Mobile Unit</option>
+              <option>Kolam Renang Tirta Mulya</option>
             </select>
             <span className="material-symbols-outlined icon-sm emp-select-arrow">expand_more</span>
           </div>
@@ -1052,9 +1052,9 @@ const Employees: React.FC = () => {
                     value={newEmpZone}
                     onChange={(e) => setNewEmpZone(e.target.value)}
                   >
-                    <option>HQ Central Hub</option>
                     <option>South Hub</option>
                     <option>Field Mobile Unit</option>
+                    <option>Kolam Renang Tirta Mulya</option>
                   </select>
                 </div>
               </div>
