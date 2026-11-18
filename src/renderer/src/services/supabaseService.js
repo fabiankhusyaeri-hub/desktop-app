@@ -13,12 +13,89 @@ export const supabaseService = {
   // 1. Fetch employees for the directory & sidebar.
   async getEmployees() {
     if (!isSupabaseConfigured()) return null;
-    const { data, error } = await supabase.from('employees').select('*');
+    const { data, error } = await supabase.from('employees').select('*').order('created_at', { ascending: false });
     if (error) {
       console.error('[supabase] getEmployees', error);
       return null;
     }
     return data;
+  },
+
+  async createEmployee(input) {
+    if (!isSupabaseConfigured()) return null;
+    const id = input.id ?? `EMP-${Date.now()}`;
+    const payload = {
+      id,
+      emp_id: input.emp_id ?? id,
+      name: input.name ?? 'New Employee',
+      email: input.email ?? '',
+      rfid_token: input.rfid_token ?? `RFID-${id}`,
+      department: input.department ?? 'General',
+      role: input.role ?? 'Field Operator',
+      geofence: input.geofence ?? 'Kolam Renang Tirta Mulya',
+      attendance_status: input.attendance_status ?? 'present',
+      attendance_time: input.attendance_time ?? 'Registered Today',
+      location_state: input.location_state ?? 'online',
+      location_detail: input.location_detail ?? 'Online (Enrolled)',
+      last_ping: input.last_ping ?? 'Just now',
+      avatar: input.avatar ?? '',
+      gps_lat: input.gps_lat ?? null,
+      gps_lng: input.gps_lng ?? null,
+      gps_accuracy: input.gps_accuracy ?? null,
+      distance_meters: input.distance_meters ?? null,
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase.from('employees').insert([payload]).select().single();
+    if (error) {
+      console.error('[supabase] createEmployee', error);
+      return null;
+    }
+    return data;
+  },
+
+  async updateEmployee(id, input) {
+    if (!isSupabaseConfigured()) return null;
+    const { data, error } = await supabase
+      .from('employees')
+      .update({
+        emp_id: input.emp_id ?? id,
+        name: input.name ?? undefined,
+        email: input.email ?? undefined,
+        department: input.department ?? undefined,
+        role: input.role ?? undefined,
+        geofence: input.geofence ?? undefined,
+        attendance_status: input.attendance_status ?? undefined,
+        attendance_time: input.attendance_time ?? undefined,
+        location_state: input.location_state ?? undefined,
+        location_detail: input.location_detail ?? undefined,
+        last_ping: input.last_ping ?? undefined,
+        avatar: input.avatar ?? undefined,
+        gps_lat: input.gps_lat ?? undefined,
+        gps_lng: input.gps_lng ?? undefined,
+        gps_accuracy: input.gps_accuracy ?? undefined,
+        distance_meters: input.distance_meters ?? undefined,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[supabase] updateEmployee', error);
+      return null;
+    }
+    return data;
+  },
+
+  async deleteEmployee(id) {
+    if (!isSupabaseConfigured()) return false;
+    const { error } = await supabase.from('employees').delete().eq('id', id);
+    if (error) {
+      console.error('[supabase] deleteEmployee', error);
+      return false;
+    }
+    return true;
   },
 
   // 2. Fetch live telemetry + joined employee info for the map markers.
@@ -125,5 +202,61 @@ export const supabaseService = {
       return null;
     }
     return data;
+  },
+
+  // 6b. Same read as getLocations, but keeps the error visible.
+  // getLocations swallows failures (null == empty for the caller), which would
+  // make the Bulk Geofence Sync toast claim success while the server actually
+  // errored (e.g. missing table). Returns `{ data, error }` instead.
+  async getLocationsDetailed() {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: { message: 'Supabase is not configured.' } };
+    }
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .order('code', { ascending: true });
+    if (error) {
+      console.error('[supabase] getLocationsDetailed', error);
+      return { data: null, error };
+    }
+    return { data, error: null };
+  },
+
+  // 7. Insert a new office location (Location page — Save Location).
+  //
+  // Unlike the fetch helpers above, this returns `{ data, error }` instead of
+  // swallowing the failure: the caller must show the real server message so a
+  // failed save is never reported as a success (e.g. missing table / RLS 42501
+  // / duplicate code).
+  async insertLocation(payload) {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: { message: 'Supabase is not configured.' } };
+    }
+    const { data, error } = await supabase.from('locations').insert([payload]).select().single();
+    if (error) {
+      console.error('[supabase] insertLocation', error);
+      return { data: null, error };
+    }
+    return { data, error: null };
+  },
+
+  // 8. Update an existing office location (edit form, status toggle).
+  // Same `{ data, error }` contract as insertLocation.
+  async updateLocation(id, patch) {
+    if (!isSupabaseConfigured()) {
+      return { data: null, error: { message: 'Supabase is not configured.' } };
+    }
+    const { data, error } = await supabase
+      .from('locations')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) {
+      console.error('[supabase] updateLocation', error);
+      return { data: null, error };
+    }
+    return { data, error: null };
   }
 };

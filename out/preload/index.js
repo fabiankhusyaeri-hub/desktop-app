@@ -78,10 +78,28 @@ const electronAPI = {
     }
   }
 };
+const supabaseBridge = {
+  testConnection: async () => {
+    return electron.ipcRenderer.invoke("supabase:test-connection");
+  },
+  getEmployees: async () => {
+    return electron.ipcRenderer.invoke("supabase:get-employees");
+  },
+  createEmployee: async (payload) => {
+    return electron.ipcRenderer.invoke("supabase:create-employee", payload);
+  },
+  updateEmployee: async (id, payload) => {
+    return electron.ipcRenderer.invoke("supabase:update-employee", { id, payload });
+  },
+  deleteEmployee: async (id) => {
+    return electron.ipcRenderer.invoke("supabase:delete-employee", { id });
+  }
+};
 if (process.contextIsolated) {
   try {
     electron.contextBridge.exposeInMainWorld("electron", electronAPI);
+    electron.contextBridge.exposeInMainWorld("supabaseBridge", supabaseBridge);
   } catch (error) {
-    console.error(error);
+    console.error("[preload] Supabase bridge error:", error);
   }
 }

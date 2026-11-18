@@ -113,6 +113,13 @@ export interface DashboardSnapshot {
   kpi: DashboardKpi
   geo: GeoTelemetry
   weeklyAttendance: WeeklyAttendancePoint[]
+  /**
+   * Chart series behind the Day / Week / Month toggle. `weeklyAttendance`
+   * stays the Week series; the other two are optional so a REST payload that
+   * omits them still satisfies the contract (the chart renders empty).
+   */
+  dailyAttendance?: WeeklyAttendancePoint[]
+  monthAttendance?: WeeklyAttendancePoint[]
   statusBreakdown: StatusSlice[]
   shiftCoverage: ShiftCoverageRow[]
   attendanceLog: AttendanceLogEntry[]

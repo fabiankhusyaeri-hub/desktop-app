@@ -86,7 +86,7 @@ const fromSupabaseEmployee = (row: any): EmployeeEntry => ({
   rfidToken: row.rfid_token ?? `RFID-${row.id}`,
   department: row.department ?? 'IT Engineering',
   role: row.role ?? 'Field Operator',
-  geofence: row.geofence ?? 'HQ Central Hub',
+  geofence: row.geofence ?? 'Kolam Renang Tirta Mulya',
   attendanceStatus: row.attendance_status ?? 'present',
   attendanceTime: row.attendance_time ?? 'Registered Today',
   locationState: row.location_state ?? 'online',
@@ -182,6 +182,31 @@ const withGeneratedIds = (input: EmployeeInput): EmployeeEntry => {
 }
 
 export const createEmployee = async (input: EmployeeInput): Promise<EmployeeEntry> => {
+  if (isSupabaseConfigured()) {
+    const created = await supabaseService.createEmployee({
+      id: `EMP-${Date.now()}`,
+      emp_id: `EMP-${Date.now()}`,
+      name: input.name,
+      email: input.email,
+      department: input.department,
+      role: input.role,
+      geofence: input.geofence,
+      attendance_status: 'present',
+      attendance_time: 'Registered Today',
+      location_state: 'online',
+      location_detail: 'Online (Enrolled)',
+      last_ping: 'Just now'
+    })
+
+    if (created) {
+      const mapped = fromSupabaseEmployee(created)
+      if (cache) {
+        cache = { ...cache, employees: [mapped, ...cache.employees.filter((employee) => employee.id !== mapped.id)] }
+      }
+      return mapped
+    }
+  }
+
   if (!isApiConfigured()) {
     const record = withGeneratedIds(input)
     if (cache) cache = { ...cache, employees: [record, ...cache.employees] }
@@ -194,6 +219,17 @@ export const updateEmployee = async (
   id: string,
   input: EmployeeInput
 ): Promise<EmployeeEntry | null> => {
+  if (isSupabaseConfigured()) {
+    const updated = await supabaseService.updateEmployee(id, {
+      name: input.name,
+      email: input.email,
+      department: input.department,
+      role: input.role,
+      geofence: input.geofence
+    })
+    if (updated) return fromSupabaseEmployee(updated)
+  }
+
   if (!isApiConfigured()) {
     if (!cache) return null
     let updated: EmployeeEntry | null = null
@@ -211,6 +247,16 @@ export const updateEmployee = async (
 }
 
 export const deleteEmployee = async (id: string): Promise<boolean> => {
+  if (isSupabaseConfigured()) {
+    const removed = await supabaseService.deleteEmployee(id)
+    if (removed) {
+      if (cache) {
+        cache = { ...cache, employees: cache.employees.filter((employee) => employee.id !== id) }
+      }
+      return true
+    }
+  }
+
   if (!isApiConfigured()) {
     if (!cache) return false
     const before = cache.employees.length
@@ -285,7 +331,7 @@ export const importEmployeesFromCsv = async (
       email: emailIdx >= 0 ? cells[emailIdx] : '',
       department: deptIdx >= 0 && cells[deptIdx] ? cells[deptIdx] : 'IT Engineering',
       role: roleIdx >= 0 ? cells[roleIdx] : 'Field Operator',
-      geofence: zoneIdx >= 0 && cells[zoneIdx] ? cells[zoneIdx] : 'HQ Central Hub'
+      geofence: zoneIdx >= 0 && cells[zoneIdx] ? cells[zoneIdx] : 'Kolam Renang Tirta Mulya'
     })
     if (!cache) cache = clone()
     cache = { ...cache, employees: [record, ...cache.employees] }

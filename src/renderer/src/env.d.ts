@@ -21,3 +21,18 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+declare global {
+  interface Window {
+    supabaseBridge?: {
+      testConnection: () => Promise<{ success: boolean; message: string; data?: unknown[] }>
+      getEmployees: () => Promise<{ success: boolean; message: string; data?: unknown[] }>
+      createEmployee: (payload: Record<string, unknown>) => Promise<{ success: boolean; message: string; data?: unknown[] }>
+      updateEmployee: (id: string, payload: Record<string, unknown>) => Promise<{ success: boolean; message: string; data?: unknown[] }>
+      deleteEmployee: (id: string) => Promise<{ success: boolean; message: string; data?: unknown[] }>
+    }
+    __debugSupabaseCheck?: () => Promise<void>
+  }
+}
+
+export {}
