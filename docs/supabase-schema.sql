@@ -61,8 +61,14 @@ alter table public.telemetry  enable row level security;
 drop policy if exists "anon read employees"  on public.employees;
 drop policy if exists "anon read attendance" on public.attendance;
 drop policy if exists "anon read telemetry"  on public.telemetry;
+drop policy if exists "anon write employees" on public.employees;
+drop policy if exists "anon update employees" on public.employees;
+drop policy if exists "anon delete employees" on public.employees;
 
 create policy "anon read employees"  on public.employees  for select using (true);
+create policy "anon write employees" on public.employees for insert with check (true);
+create policy "anon update employees" on public.employees for update using (true) with check (true);
+create policy "anon delete employees" on public.employees for delete using (true);
 create policy "anon read attendance" on public.attendance for select using (true);
 create policy "anon read telemetry"  on public.telemetry  for select using (true);
 
